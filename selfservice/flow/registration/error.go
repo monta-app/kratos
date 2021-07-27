@@ -98,8 +98,8 @@ func (s *ErrorHandler) WriteFlowError(
 		return
 	}
 
-	ds, err := s.d.Config().DefaultIdentityTraitsSchemaURL(r.Context())
-	if err != nil {
+	ds, e := s.d.Config().DefaultIdentityTraitsSchemaURL(r.Context())
+	if e != nil {
 		s.forward(w, r, f, err)
 		return
 	}

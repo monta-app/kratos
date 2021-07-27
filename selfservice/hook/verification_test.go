@@ -125,3 +125,59 @@ func TestVerifier(t *testing.T) {
 		})
 	}
 }
+
+func TestPhoneVerifier(t *testing.T) {
+	u := &http.Request{URL: urlx.ParseOrPanic("https://www.ory.sh/")}
+
+	t.Run("verify phone number", func(t *testing.T) {
+		conf, reg := internal.NewFastRegistryWithMocks(t)
+		testhelpers.SetDefaultIdentitySchema(conf, "file://./stub/verify.phone.schema.json")
+		conf.MustSet(config.ViperKeyPublicBaseURL, "https://www.ory.sh/")
+
+		i := identity.NewIdentity(config.DefaultIdentityTraitsSchemaID)
+		i.Traits = identity.Traits(`{"phone":"+18004444444"}`)
+		require.NoError(t, reg.IdentityManager().Create(context.Background(), i))
+
+		actual, err := reg.IdentityPool().FindVerifiableAddressByValue(context.Background(), identity.VerifiableAddressTypePhone, "+18004444444")
+		require.NoError(t, err)
+		assert.EqualValues(t, "+18004444444", actual.Value)
+
+		var originalFlow flow.Flow
+		originalFlow = &settings.Flow{RequestURL: "http://foo.com/settings?after_verification_return_to=verification_callback"}
+
+		h := hook.NewVerifier(reg)
+		require.NoError(t, h.ExecuteSettingsPostPersistHook(httptest.NewRecorder(), u, originalFlow.(*settings.Flow), i))
+		expectedVerificationFlow, err := verification.NewPostHookFlow(conf, conf.SelfServiceFlowVerificationRequestLifespan(), "", u, reg.VerificationStrategies(context.Background()), originalFlow)
+		require.NoError(t, err)
+
+		var verificationFlow verification.Flow
+		require.NoError(t, reg.Persister().GetConnection(context.Background()).First(&verificationFlow))
+
+		assert.Equal(t, expectedVerificationFlow.RequestURL, verificationFlow.RequestURL)
+
+		messages, err := reg.CourierPersister().NextMessages(context.Background(), 12)
+		require.NoError(t, err)
+		require.Len(t, messages, 1)
+
+		recipients := make([]string, len(messages))
+		for k, m := range messages {
+			recipients[k] = m.Recipient
+		}
+
+		assert.Equal(t, "+18004444444", messages[0].Recipient)
+
+		//this address will be marked as sent and won't be sent again by the settings hook
+		address1, err := reg.IdentityPool().FindVerifiableAddressByValue(context.Background(), identity.VerifiableAddressTypePhone, "+18004444444")
+		require.NoError(t, err)
+		assert.EqualValues(t, identity.VerifiableAddressStatusSent, address1.Status)
+
+		require.NoError(t, h.ExecuteSettingsPostPersistHook(httptest.NewRecorder(), u, originalFlow.(*settings.Flow), i))
+		expectedVerificationFlow, err = verification.NewPostHookFlow(conf, conf.SelfServiceFlowVerificationRequestLifespan(), "", u, reg.VerificationStrategies(context.Background()), originalFlow)
+		var verificationFlow2 verification.Flow
+		require.NoError(t, reg.Persister().GetConnection(context.Background()).First(&verificationFlow2))
+		assert.Equal(t, expectedVerificationFlow.RequestURL, verificationFlow2.RequestURL)
+		messages, err = reg.CourierPersister().NextMessages(context.Background(), 12)
+		require.EqualError(t, err, courier.ErrQueueEmpty.Error())
+		assert.Len(t, messages, 0)
+	})
+}

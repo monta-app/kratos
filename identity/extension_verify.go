@@ -10,19 +10,28 @@ import (
 )
 
 type SchemaExtensionVerification struct {
-	lifespan time.Duration
-	l        sync.Mutex
-	v        []VerifiableAddress
-	i        *Identity
+	lifespan        time.Duration
+	codeTestNumbers []string
+	l               sync.Mutex
+	v               []VerifiableAddress
+	i               *Identity
 }
 
-func NewSchemaExtensionVerification(i *Identity, lifespan time.Duration) *SchemaExtensionVerification {
-	return &SchemaExtensionVerification{i: i, lifespan: lifespan}
+func NewSchemaExtensionVerification(i *Identity, lifespan time.Duration, codeTestNumbers []string) *SchemaExtensionVerification {
+	return &SchemaExtensionVerification{i: i, lifespan: lifespan, codeTestNumbers: codeTestNumbers}
 }
 
 func (r *SchemaExtensionVerification) Run(ctx jsonschema.ValidationContext, s schema.ExtensionConfig, value interface{}) error {
 	r.l.Lock()
 	defer r.l.Unlock()
+
+	if s.Credentials.Code.Identifier {
+		if err := r.checkTelFormat(ctx, value); err != nil {
+			return err
+		}
+		address := NewVerifiablePhoneAddress(fmt.Sprintf("%s", value), r.i.ID)
+		r.appendAddress(address)
+	}
 
 	switch s.Verification.Via {
 	case AddressTypeEmail:
@@ -37,8 +46,8 @@ func (r *SchemaExtensionVerification) Run(ctx jsonschema.ValidationContext, s sc
 		return nil
 
 	case AddressTypePhone:
-		if !jsonschema.Formats["tel"](value) {
-			return ctx.Error("format", "%q is not valid %q", value, "phone")
+		if err := r.checkTelFormat(ctx, value); err != nil {
+			return err
 		}
 
 		address := NewVerifiablePhoneAddress(fmt.Sprintf("%s", value), r.i.ID)
@@ -77,6 +86,23 @@ func has(haystack []VerifiableAddress, needle *VerifiableAddress) *VerifiableAdd
 		if has.Value == needle.Value && has.Via == needle.Via {
 			return &has
 		}
+	}
+	return nil
+}
+
+func (r *SchemaExtensionVerification) checkTelFormat(ctx jsonschema.ValidationContext, value interface{}) error {
+	validationError := ctx.Error("format", "%q is not valid %q", value, "phone")
+	num, ok := value.(string)
+	if !ok {
+		return validationError
+	}
+	for _, n := range r.codeTestNumbers {
+		if num == n {
+			return nil
+		}
+	}
+	if !jsonschema.Formats["tel"](num) {
+		return validationError
 	}
 	return nil
 }

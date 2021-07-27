@@ -3,6 +3,8 @@ package driver
 import (
 	"context"
 
+	"github.com/ory/kratos/driver/clock"
+
 	"github.com/ory/x/contextx"
 	"github.com/ory/x/otelx"
 	prometheus "github.com/ory/x/prometheusx"
@@ -64,6 +66,7 @@ type Registry interface {
 
 	config.Provider
 	CourierConfig() config.CourierConfigs
+	clock.Provider
 	WithConfig(c *config.Config) Registry
 	WithContextualizer(ctxer contextx.Contextualizer) Registry
 

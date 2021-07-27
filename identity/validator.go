@@ -54,7 +54,11 @@ func (v *Validator) ValidateWithRunner(ctx context.Context, i *Identity, runners
 func (v *Validator) Validate(ctx context.Context, i *Identity) error {
 	return v.ValidateWithRunner(ctx, i,
 		NewSchemaExtensionCredentials(i),
-		NewSchemaExtensionVerification(i, v.d.Config().SelfServiceFlowVerificationRequestLifespan(ctx)),
+		NewSchemaExtensionVerification(
+			i,
+			v.d.Config().SelfServiceFlowVerificationRequestLifespan(ctx),
+			v.d.Config(ctx).SelfServiceCodeTestNumbers(),
+		),
 		NewSchemaExtensionRecovery(i),
 	)
 }

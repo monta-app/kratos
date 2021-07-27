@@ -24,6 +24,14 @@ func NewInfoSelfServiceVerificationSuccessful() *Message {
 	}
 }
 
+func NewInfoSelfServicePhoneVerificationSuccessful() *Message {
+	return &Message{
+		ID:   InfoSelfServicePhoneVerificationSuccessful,
+		Type: Info,
+		Text: "You successfully verified your phone number.",
+	}
+}
+
 func NewVerificationEmailSent() *Message {
 	return &Message{
 		ID:      InfoSelfServiceVerificationEmailSent,
@@ -56,6 +64,15 @@ func NewErrorValidationVerificationStateFailure() *Message {
 		ID:      ErrorValidationVerificationStateFailure,
 		Text:    "The verification flow reached a failure state and must be retried.",
 		Type:    Error,
+		Context: context(nil),
+	}
+}
+
+func NewVerificationPhoneSent() *Message {
+	return &Message{
+		ID:      InfoSelfServiceVerificationPhoneSent,
+		Type:    Info,
+		Text:    "A message containing a verification code has been sent to the phone number you provided.",
 		Context: context(nil),
 	}
 }

@@ -167,6 +167,8 @@ func NewInputFieldFromSchema(name string, group UiNodeGroup, p jsonschemax.Path,
 		attr.Autocomplete = InputAttributeAutocompleteUrl
 	case "regex":
 		attr.Type = InputAttributeTypeText
+	case "phone":
+		attr.Type = InputAttributeTypePhone
 	}
 
 	// Other properties

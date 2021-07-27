@@ -399,7 +399,7 @@ type V0alpha2Api interface {
 		res.render('verification', flow)
 		})
 
-		More information can be found at [Ory Kratos Email and Phone Verification Documentation](https://www.ory.sh/docs/kratos/selfservice/flows/verify-email-account-activation).
+		More information can be found at [Ory Kratos Email and To Verification Documentation](https://www.ory.sh/docs/kratos/selfservice/flows/verify-email-account-activation).
 			 * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 			 * @return V0alpha2ApiApiGetSelfServiceVerificationFlowRequest
 	*/
@@ -701,7 +701,7 @@ type V0alpha2Api interface {
 
 		This endpoint is NOT INTENDED for API clients and only works with browsers (Chrome, Firefox, ...).
 
-		More information can be found at [Ory Kratos Email and Phone Verification Documentation](https://www.ory.sh/docs/kratos/selfservice/flows/verify-email-account-activation).
+		More information can be found at [Ory Kratos Email and To Verification Documentation](https://www.ory.sh/docs/kratos/selfservice/flows/verify-email-account-activation).
 			 * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 			 * @return V0alpha2ApiApiInitializeSelfServiceVerificationFlowForBrowsersRequest
 	*/
@@ -725,7 +725,7 @@ type V0alpha2Api interface {
 
 		This endpoint MUST ONLY be used in scenarios such as native mobile apps (React Native, Objective C, Swift, Java, ...).
 
-		More information can be found at [Ory Kratos Email and Phone Verification Documentation](https://www.ory.sh/docs/kratos/self-service/flows/verify-email-account-activation).
+		More information can be found at [Ory Kratos Email and To Verification Documentation](https://www.ory.sh/docs/kratos/self-service/flows/verify-email-account-activation).
 			 * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 			 * @return V0alpha2ApiApiInitializeSelfServiceVerificationFlowWithoutBrowserRequest
 	*/
@@ -1033,7 +1033,7 @@ type V0alpha2Api interface {
 		(if the link was valid) and instructs the user to update their password, or a redirect to the Verification UI URL with
 		a new Verification Flow ID which contains an error message that the verification link was invalid.
 
-		More information can be found at [Ory Kratos Email and Phone Verification Documentation](https://www.ory.sh/docs/kratos/selfservice/flows/verify-email-account-activation).
+		More information can be found at [Ory Kratos Email and To Verification Documentation](https://www.ory.sh/docs/kratos/selfservice/flows/verify-email-account-activation).
 			 * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 			 * @return V0alpha2ApiApiSubmitSelfServiceVerificationFlowRequest
 	*/
@@ -3814,7 +3814,7 @@ const flow = await client.getSelfServiceVerificationFlow(req.header('cookie'), r
 res.render('verification', flow)
 })
 
-More information can be found at [Ory Kratos Email and Phone Verification Documentation](https://www.ory.sh/docs/kratos/selfservice/flows/verify-email-account-activation).
+More information can be found at [Ory Kratos Email and To Verification Documentation](https://www.ory.sh/docs/kratos/selfservice/flows/verify-email-account-activation).
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @return V0alpha2ApiApiGetSelfServiceVerificationFlowRequest
 */
@@ -5276,7 +5276,7 @@ If this endpoint is called via an AJAX request, the response contains the recove
 
 This endpoint is NOT INTENDED for API clients and only works with browsers (Chrome, Firefox, ...).
 
-More information can be found at [Ory Kratos Email and Phone Verification Documentation](https://www.ory.sh/docs/kratos/selfservice/flows/verify-email-account-activation).
+More information can be found at [Ory Kratos Email and To Verification Documentation](https://www.ory.sh/docs/kratos/selfservice/flows/verify-email-account-activation).
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @return V0alpha2ApiApiInitializeSelfServiceVerificationFlowForBrowsersRequest
 */
@@ -5399,7 +5399,7 @@ you vulnerable to a variety of CSRF attacks.
 
 This endpoint MUST ONLY be used in scenarios such as native mobile apps (React Native, Objective C, Swift, Java, ...).
 
-More information can be found at [Ory Kratos Email and Phone Verification Documentation](https://www.ory.sh/docs/kratos/self-service/flows/verify-email-account-activation).
+More information can be found at [Ory Kratos Email and To Verification Documentation](https://www.ory.sh/docs/kratos/self-service/flows/verify-email-account-activation).
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @return V0alpha2ApiApiInitializeSelfServiceVerificationFlowWithoutBrowserRequest
 */
@@ -7218,7 +7218,7 @@ does not have any API capabilities. The server responds with a HTTP 303 See Othe
 (if the link was valid) and instructs the user to update their password, or a redirect to the Verification UI URL with
 a new Verification Flow ID which contains an error message that the verification link was invalid.
 
-More information can be found at [Ory Kratos Email and Phone Verification Documentation](https://www.ory.sh/docs/kratos/selfservice/flows/verify-email-account-activation).
+More information can be found at [Ory Kratos Email and To Verification Documentation](https://www.ory.sh/docs/kratos/selfservice/flows/verify-email-account-activation).
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @return V0alpha2ApiApiSubmitSelfServiceVerificationFlowRequest
 */

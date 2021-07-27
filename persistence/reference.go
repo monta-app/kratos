@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/ory/kratos/selfservice/strategy/code"
+
 	"github.com/ory/x/networkx"
 
 	"github.com/gofrs/uuid"
@@ -43,6 +45,7 @@ type Persister interface {
 	recovery.FlowPersister
 	link.RecoveryTokenPersister
 	link.VerificationTokenPersister
+	code.CodePersister
 
 	CleanupDatabase(context.Context, time.Duration, time.Duration, int) error
 	Close(context.Context) error

@@ -854,8 +854,8 @@ func TestPool(ctx context.Context, conf *config.Config, p interface {
 			require.NoError(t, p.GetConnection(ctx).RawQuery("INSERT INTO identity_credentials (id, identity_id, nid, identity_credential_type_id, created_at, updated_at, config) VALUES (?, ?, ?, ?, ?, ?, '{}')", cid2, iid, nid2, m[0].ID, time.Now(), time.Now()).Exec())
 
 			ici1, ici2 := x.NewUUID(), x.NewUUID()
-			require.NoError(t, p.GetConnection(ctx).RawQuery("INSERT INTO identity_credential_identifiers (id, identity_credential_id, nid, identifier, created_at, updated_at, identity_credential_type_id) VALUES (?, ?, ?, ?, ?, ?, ?)", ici1, cid1, nid1, "nid1", time.Now(), time.Now(), m[0].ID).Exec())
-			require.NoError(t, p.GetConnection(ctx).RawQuery("INSERT INTO identity_credential_identifiers (id, identity_credential_id, nid, identifier, created_at, updated_at, identity_credential_type_id) VALUES (?, ?, ?, ?, ?, ?, ?)", ici2, cid2, nid2, "nid2", time.Now(), time.Now(), m[0].ID).Exec())
+			require.NoError(t, p.GetConnection(ctx).RawQuery("INSERT INTO identity_credential_identifiers (id, identity_credential_id, nid, identifier, created_at, updated_at, identity_credential_type_id) VALUES (?, ?, ?, ?, ?, ?, ?)", ici1, cid1, nid1, "1", time.Now(), time.Now(), m[0].ID).Exec())
+			require.NoError(t, p.GetConnection(ctx).RawQuery("INSERT INTO identity_credential_identifiers (id, identity_credential_id, nid, identifier, created_at, updated_at, identity_credential_type_id) VALUES (?, ?, ?, ?, ?, ?, ?)", ici2, cid2, nid2, "2", time.Now(), time.Now(), m[0].ID).Exec())
 
 			_, err := p.GetIdentity(ctx, nid1)
 			require.ErrorIs(t, err, sqlcon.ErrNoRows)
@@ -863,18 +863,18 @@ func TestPool(ctx context.Context, conf *config.Config, p interface {
 			_, err = p.GetIdentityConfidential(ctx, nid1)
 			require.ErrorIs(t, err, sqlcon.ErrNoRows)
 
-			i, c, err := p.FindByCredentialsIdentifier(ctx, m[0].Name, "nid1")
+			i, c, err := p.FindByCredentialsIdentifier(ctx, m[0].Name, "1")
 			assert.NoError(t, err)
-			assert.Equal(t, "nid1", c.Identifiers[0])
+			assert.Equal(t, "1", c.Identifiers[0])
 			require.Len(t, i.Credentials, 0)
 
-			_, _, err = p.FindByCredentialsIdentifier(ctx, m[0].Name, "nid2")
+			_, _, err = p.FindByCredentialsIdentifier(ctx, m[0].Name, "2")
 			require.ErrorIs(t, err, sqlcon.ErrNoRows)
 
 			i, err = p.GetIdentityConfidential(ctx, iid)
 			require.NoError(t, err)
 			require.Len(t, i.Credentials, 1)
-			assert.Equal(t, "nid1", i.Credentials[m[0].Name].Identifiers[0])
+			assert.Equal(t, "1", i.Credentials[m[0].Name].Identifiers[0])
 		})
 	}
 }

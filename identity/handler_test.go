@@ -642,6 +642,26 @@ func TestHandler(t *testing.T) {
 			}
 		})
 
+		t.Run("case=should delete email and check if credentials deleted", func(t *testing.T) {
+			for name, ts := range map[string]*httptest.Server{"public": publicTS, "admin": adminTS} {
+				t.Run("endpoint="+name, func(t *testing.T) {
+					res := send(t, ts, "POST", "/identities", http.StatusCreated, json.RawMessage(`{"traits": {"email":"baz@ory.com"}}`))
+					id := res.Get("id").String()
+					actual, err := reg.PrivilegedIdentityPool().GetIdentityConfidential(ctx, uuid.FromStringOrNil(id))
+					require.NoError(t, err)
+					assert.Equal(t, 1, len(actual.Credentials))
+					assert.Equal(t, 1, len(actual.Credentials[identity.CredentialsTypePassword].Identifiers))
+					res = send(t, ts, "PUT", "/identities/"+id, http.StatusOK, &identity.AdminUpdateIdentityBody{
+						Traits: []byte(`{}`),
+					})
+					actual, err = reg.PrivilegedIdentityPool().GetIdentityConfidential(ctx, uuid.FromStringOrNil(id))
+					require.NoError(t, err)
+					assert.Equal(t, 1, len(actual.Credentials))
+					assert.Equal(t, 0, len(actual.Credentials[identity.CredentialsTypePassword].Identifiers))
+				})
+			}
+		})
+
 		t.Run("case=should delete a user and no longer be able to retrieve it", func(t *testing.T) {
 			for name, ts := range map[string]*httptest.Server{"public": publicTS, "admin": adminTS} {
 				t.Run("endpoint="+name, func(t *testing.T) {

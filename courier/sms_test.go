@@ -29,11 +29,11 @@ func TestQueueSMS(t *testing.T) {
 	expectedSMS := []*sms.TestStubModel{
 		{
 			To:   "+12065550101",
-			Body: "test-sms-body-1",
+			Body: "test-code-body-1",
 		},
 		{
 			To:   "+12065550102",
-			Body: "test-sms-body-2",
+			Body: "test-code-body-2",
 		},
 	}
 

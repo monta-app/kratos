@@ -2,6 +2,7 @@ package identity
 
 import (
 	"fmt"
+	"github.com/nyaruka/phonenumbers"
 	"strings"
 	"sync"
 
@@ -14,31 +15,19 @@ import (
 
 type SchemaExtensionCredentials struct {
 	i *Identity
-	v []string
+	v map[CredentialsType][]string
 	l sync.Mutex
 }
 
 func NewSchemaExtensionCredentials(i *Identity) *SchemaExtensionCredentials {
-	return &SchemaExtensionCredentials{i: i}
+	return &SchemaExtensionCredentials{i: i, v: make(map[CredentialsType][]string)}
 }
 
 func (r *SchemaExtensionCredentials) setIdentifier(ct CredentialsType, value interface{}) {
-	cred, ok := r.i.GetCredentials(ct)
-	if !ok {
-		cred = &Credentials{
-			Type:        ct,
-			Identifiers: []string{},
-			Config:      sqlxx.JSONRawMessage{},
-		}
-	}
-
-	r.v = stringslice.Unique(append(r.v, strings.ToLower(fmt.Sprintf("%s", value))))
-	cred.Identifiers = r.v
-	r.i.SetCredentials(ct, *cred)
-
+	r.v[ct] = stringslice.Unique(append(r.v[ct], strings.ToLower(fmt.Sprintf("%s", value))))
 }
 
-func (r *SchemaExtensionCredentials) Run(_ jsonschema.ValidationContext, s schema.ExtensionConfig, value interface{}) error {
+func (r *SchemaExtensionCredentials) Run(ctx jsonschema.ValidationContext, s schema.ExtensionConfig, value interface{}) error {
 	r.l.Lock()
 	defer r.l.Unlock()
 
@@ -50,9 +39,41 @@ func (r *SchemaExtensionCredentials) Run(_ jsonschema.ValidationContext, s schem
 		r.setIdentifier(CredentialsTypeWebAuthn, value)
 	}
 
+	if s.Credentials.Code.Identifier {
+		phoneNumber, err := phonenumbers.Parse(fmt.Sprintf("%s", value), "")
+		if err != nil {
+			validationError := ctx.Error("format", "%s", err)
+			return validationError
+		}
+		e164 := fmt.Sprintf("+%d%d", *phoneNumber.CountryCode, *phoneNumber.NationalNumber)
+		r.setIdentifier(CredentialsTypeCode, e164)
+	}
+
 	return nil
 }
 
 func (r *SchemaExtensionCredentials) Finish() error {
+	for ct := range r.i.Credentials {
+		_, ok := r.v[ct]
+		if !ok {
+			r.v[ct] = []string{}
+		}
+	}
+	for ct, identifiers := range r.v {
+		cred, ok := r.i.GetCredentials(ct)
+		if !ok {
+			cred = &Credentials{
+				Type:        ct,
+				Identifiers: []string{},
+				Config:      sqlxx.JSONRawMessage{},
+			}
+		}
+
+		if ct == CredentialsTypePassword || ct == CredentialsTypeCode || ct == CredentialsTypeWebAuthn {
+			cred.Identifiers = identifiers
+			r.i.SetCredentials(ct, *cred)
+		}
+	}
+
 	return nil
 }

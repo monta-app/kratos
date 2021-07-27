@@ -74,9 +74,11 @@ const (
 	ViperKeyCourierSMTPHeaders                               = "courier.smtp.headers"
 	ViperKeyCourierSMTPLocalName                             = "courier.smtp.local_name"
 	ViperKeyCourierSMSRequestConfig                          = "courier.sms.request_config"
+	ViperKeyCourierSMSStandbyRequestConfig                   = "courier.sms.standby.request_config"
 	ViperKeyCourierSMSEnabled                                = "courier.sms.enabled"
 	ViperKeyCourierSMSFrom                                   = "courier.sms.from"
 	ViperKeyCourierMessageRetries                            = "courier.message_retries"
+	ViperKeyCourierSMSStandbyFrom                            = "courier.sms.standby.from"
 	ViperKeySecretsDefault                                   = "secrets.default"
 	ViperKeySecretsCookie                                    = "secrets.cookie"
 	ViperKeySecretsCipher                                    = "secrets.cipher"
@@ -174,6 +176,13 @@ const (
 	ViperKeyWebAuthnPasswordless                             = "selfservice.methods.webauthn.config.passwordless"
 	ViperKeyClientHTTPNoPrivateIPRanges                      = "clients.http.disallow_private_ip_ranges"
 	ViperKeyVersion                                          = "version"
+	CodeTestNumbers                                          = "selfservice.methods.code.config.test_numbers"
+	CodeMaxAttempts                                          = "selfservice.methods.code.config.max_attempts"
+	CodeLifespan                                             = "selfservice.methods.code.config.lifespan"
+	CodeSMSSpamProtectionEnabled                             = "selfservice.methods.code.config.sms_spam_protection.enabled"
+	CodeSMSSpamProtectionMaxSingleNumber                     = "selfservice.methods.code.config.sms_spam_protection.max_single_number"
+	CodeSMSSpamProtectionMaxNumbersRange                     = "selfservice.methods.code.config.sms_spam_protection.max_numbers_range"
+	ViperKeyCourierTemplatesVerificationValidSMS             = "courier.templates.verification.valid.sms"
 )
 
 const (
@@ -254,12 +263,15 @@ type (
 		CourierSMTPLocalName(ctx context.Context) string
 		CourierSMSEnabled(ctx context.Context) bool
 		CourierSMSFrom(ctx context.Context) string
+		CourierSMSStandbyFrom() string
 		CourierSMSRequestConfig(ctx context.Context) json.RawMessage
+		CourierSMSStandbyRequestConfig() json.RawMessage
 		CourierTemplatesRoot(ctx context.Context) string
 		CourierTemplatesVerificationInvalid(ctx context.Context) *CourierEmailTemplate
 		CourierTemplatesVerificationValid(ctx context.Context) *CourierEmailTemplate
 		CourierTemplatesRecoveryInvalid(ctx context.Context) *CourierEmailTemplate
 		CourierTemplatesRecoveryValid(ctx context.Context) *CourierEmailTemplate
+		CourierTemplatesVerificationValidSMS() string
 		CourierMessageRetries(ctx context.Context) int
 	}
 )
@@ -992,8 +1004,31 @@ func (p *Config) CourierSMSRequestConfig(ctx context.Context) json.RawMessage {
 	return json.RawMessage(config)
 }
 
+func (p *Config) CourierSMSStandbyRequestConfig() json.RawMessage {
+	if !p.p.Bool(ViperKeyCourierSMSEnabled) {
+		return nil
+	}
+
+	out, err := p.p.Marshal(kjson.Parser())
+	if err != nil {
+		p.l.WithError(err).Warn("Unable to marshal self service strategy configuration.")
+		return nil
+	}
+
+	config := gjson.GetBytes(out, ViperKeyCourierSMSStandbyRequestConfig).Raw
+	if len(config) <= 0 {
+		return json.RawMessage("{}")
+	}
+
+	return json.RawMessage(config)
+}
+
 func (p *Config) CourierSMSFrom(ctx context.Context) string {
 	return p.GetProvider(ctx).StringF(ViperKeyCourierSMSFrom, "Ory Kratos")
+}
+
+func (p *Config) CourierSMSStandbyFrom() string {
+	return p.p.StringF(ViperKeyCourierSMSStandbyFrom, "Ory Kratos")
 }
 
 func (p *Config) CourierSMSEnabled(ctx context.Context) bool {
@@ -1300,4 +1335,32 @@ func (p *Config) getTSLCertificates(daemon, certBase64, keyBase64, certPath, key
 
 func (p *Config) GetProvider(ctx context.Context) *configx.Provider {
 	return p.c.Config(ctx, p.p)
+}
+
+func (p *Config) SelfServiceCodeTestNumbers() []string {
+	return p.p.Strings(CodeTestNumbers)
+}
+
+func (p *Config) SelfServiceCodeMaxAttempts() int {
+	return p.p.Int(CodeMaxAttempts)
+}
+
+func (p *Config) SelfServiceCodeLifespan() time.Duration {
+	return p.p.DurationF(CodeLifespan, time.Hour)
+}
+
+func (p *Config) SelfServiceCodeSMSSpamProtectionEnabled() bool {
+	return p.p.Bool(CodeSMSSpamProtectionEnabled)
+}
+
+func (p *Config) SelfServiceCodeSMSSpamProtectionMaxSingleNumber() int {
+	return p.p.Int(CodeSMSSpamProtectionMaxSingleNumber)
+}
+
+func (p *Config) SelfServiceCodeSMSSpamProtectionMaxNumbersRange() int {
+	return p.p.Int(CodeSMSSpamProtectionMaxNumbersRange)
+}
+
+func (p *Config) CourierTemplatesVerificationValidSMS() string {
+	return p.p.String(ViperKeyCourierTemplatesVerificationValidSMS)
 }

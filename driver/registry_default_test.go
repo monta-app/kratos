@@ -687,7 +687,7 @@ func TestDefaultRegistry_AllStrategies(t *testing.T) {
 	_, reg := internal.NewFastRegistryWithMocks(t)
 
 	t.Run("case=all login strategies", func(t *testing.T) {
-		expects := []string{"password", "oidc", "totp", "webauthn", "lookup_secret"}
+		expects := []string{"password", "oidc", "totp", "webauthn", "lookup_secret", "code"}
 		s := reg.AllLoginStrategies()
 		require.Len(t, s, len(expects))
 		for k, e := range expects {
@@ -696,7 +696,7 @@ func TestDefaultRegistry_AllStrategies(t *testing.T) {
 	})
 
 	t.Run("case=all registration strategies", func(t *testing.T) {
-		expects := []string{"password", "oidc", "webauthn"}
+		expects := []string{"password", "oidc", "webauthn", "code"}
 		s := reg.AllRegistrationStrategies()
 		require.Len(t, s, len(expects))
 		for k, e := range expects {
