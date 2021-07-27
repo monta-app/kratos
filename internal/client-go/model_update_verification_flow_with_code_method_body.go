@@ -25,8 +25,10 @@ type UpdateVerificationFlowWithCodeMethodBody struct {
 	Email *string `json:"email,omitempty"`
 	// The id of the flow
 	Flow *string `json:"flow,omitempty"`
-	// Method is the recovery method
+	// Method is the verification method
 	Method *string `json:"method,omitempty"`
+	// Phone to Verify format: tel
+	Phone *string `json:"phone,omitempty"`
 }
 
 // NewUpdateVerificationFlowWithCodeMethodBody instantiates a new UpdateVerificationFlowWithCodeMethodBody object
@@ -206,6 +208,38 @@ func (o *UpdateVerificationFlowWithCodeMethodBody) SetMethod(v string) {
 	o.Method = &v
 }
 
+// GetPhone returns the Phone field value if set, zero value otherwise.
+func (o *UpdateVerificationFlowWithCodeMethodBody) GetPhone() string {
+	if o == nil || o.Phone == nil {
+		var ret string
+		return ret
+	}
+	return *o.Phone
+}
+
+// GetPhoneOk returns a tuple with the Phone field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *UpdateVerificationFlowWithCodeMethodBody) GetPhoneOk() (*string, bool) {
+	if o == nil || o.Phone == nil {
+		return nil, false
+	}
+	return o.Phone, true
+}
+
+// HasPhone returns a boolean if a field has been set.
+func (o *UpdateVerificationFlowWithCodeMethodBody) HasPhone() bool {
+	if o != nil && o.Phone != nil {
+		return true
+	}
+
+	return false
+}
+
+// SetPhone gets a reference to the given string and assigns it to the Phone field.
+func (o *UpdateVerificationFlowWithCodeMethodBody) SetPhone(v string) {
+	o.Phone = &v
+}
+
 func (o UpdateVerificationFlowWithCodeMethodBody) MarshalJSON() ([]byte, error) {
 	toSerialize := map[string]interface{}{}
 	if o.Code != nil {
@@ -222,6 +256,9 @@ func (o UpdateVerificationFlowWithCodeMethodBody) MarshalJSON() ([]byte, error) 
 	}
 	if o.Method != nil {
 		toSerialize["method"] = o.Method
+	}
+	if o.Phone != nil {
+		toSerialize["phone"] = o.Phone
 	}
 	return json.Marshal(toSerialize)
 }

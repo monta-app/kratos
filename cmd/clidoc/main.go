@@ -71,6 +71,7 @@ func init() {
 		"NewInfoSelfServiceRemoveWebAuthn":                        text.NewInfoSelfServiceRemoveWebAuthn("{name}", aSecondAgo),
 		"NewErrorValidationVerificationFlowExpired":               text.NewErrorValidationVerificationFlowExpired(aSecondAgo),
 		"NewInfoSelfServiceVerificationSuccessful":                text.NewInfoSelfServiceVerificationSuccessful(),
+		"NewInfoSelfServicePhoneVerificationSuccessful":           text.NewInfoSelfServicePhoneVerificationSuccessful(),
 		"NewVerificationEmailSent":                                text.NewVerificationEmailSent(),
 		"NewVerificationEmailWithCodeSent":                        text.NewVerificationEmailWithCodeSent(),
 		"NewErrorValidationVerificationTokenInvalidOrAlreadyUsed": text.NewErrorValidationVerificationTokenInvalidOrAlreadyUsed(),
@@ -121,6 +122,9 @@ func init() {
 		"NewErrorValidationRecoveryCodeInvalidOrAlreadyUsed":      text.NewErrorValidationRecoveryCodeInvalidOrAlreadyUsed(),
 		"NewErrorValidationRecoveryRetrySuccess":                  text.NewErrorValidationRecoveryRetrySuccess(),
 		"NewErrorValidationRecoveryStateFailure":                  text.NewErrorValidationRecoveryStateFailure(),
+		"NewErrorValidationInvalidCode":                           text.NewErrorValidationInvalidCode(),
+		"NewErrorCodeSent":                                        text.NewErrorCodeSent(),
+		"NewErrorValidationSMSSpam":                               text.NewErrorValidationSMSSpam(),
 		"NewInfoNodeInputEmail":                                   text.NewInfoNodeInputEmail(),
 		"NewInfoNodeResendOTP":                                    text.NewInfoNodeResendOTP(),
 		"NewInfoNodeLabelContinue":                                text.NewInfoNodeLabelContinue(),
@@ -131,6 +135,8 @@ func init() {
 		"NewInfoSelfServiceContinueLoginWebAuthn":                 text.NewInfoSelfServiceContinueLoginWebAuthn(),
 		"NewInfoSelfServiceLoginContinue":                         text.NewInfoSelfServiceLoginContinue(),
 		"NewErrorValidationSuchNoWebAuthnUser":                    text.NewErrorValidationSuchNoWebAuthnUser(),
+		"NewInfoNodeInputPhone":                                   text.NewInfoNodeInputPhone(),
+		"NewVerificationPhoneSent":                                text.NewVerificationPhoneSent(),
 	}
 }
 

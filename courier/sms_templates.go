@@ -18,12 +18,18 @@ type SMSTemplate interface {
 	PhoneNumber() (string, error)
 }
 
+type SMSStandbySender interface {
+	UseStandbySender() bool
+}
+
 func SMSTemplateType(t SMSTemplate) (TemplateType, error) {
 	switch t.(type) {
 	case *sms.OTPMessage:
 		return TypeOTP, nil
 	case *sms.TestStub:
 		return TypeTestStub, nil
+	case *sms.CodeMessage:
+		return TypeCode, nil
 	default:
 		return "", errors.Errorf("unexpected template type")
 	}
@@ -43,6 +49,12 @@ func NewSMSTemplateFromMessage(d Dependencies, m Message) (SMSTemplate, error) {
 			return nil, err
 		}
 		return sms.NewTestStub(d, &t), nil
+	case TypeCode:
+		var t sms.CodeMessageModel
+		if err := json.Unmarshal(m.TemplateData, &t); err != nil {
+			return nil, err
+		}
+		return sms.NewCodeMessage(d, &t), nil
 	default:
 		return nil, errors.Errorf("received unexpected message template type: %s", m.TemplateType)
 	}

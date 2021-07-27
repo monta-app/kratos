@@ -74,3 +74,11 @@ func NewInfoNodeResendOTP() *Message {
 		Type: Info,
 	}
 }
+
+func NewInfoNodeInputPhone() *Message {
+	return &Message{
+		ID:   InfoNodeLabelPhone,
+		Text: "Phone",
+		Type: Info,
+	}
+}

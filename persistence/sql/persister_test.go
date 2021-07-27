@@ -267,6 +267,10 @@ func TestPersister(t *testing.T) {
 				pop.SetLogger(pl(t))
 				continuity.TestPersister(ctx, p)(t)
 			})
+			t.Run("contract=code.TestCodePersister", func(t *testing.T) {
+				pop.SetLogger(pl(t))
+				code.TestCodePersister(ctx, p)(t)
+			})
 		})
 	}
 }

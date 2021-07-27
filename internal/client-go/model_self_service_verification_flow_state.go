@@ -25,7 +25,7 @@ type SelfServiceVerificationFlowState string
 // List of selfServiceVerificationFlowState
 const (
 	SELFSERVICEVERIFICATIONFLOWSTATE_CHOOSE_METHOD    SelfServiceVerificationFlowState = "choose_method"
-	SELFSERVICEVERIFICATIONFLOWSTATE_SENT_EMAIL       SelfServiceVerificationFlowState = "sent_email"
+	SELFSERVICEVERIFICATIONFLOWSTATE_SENT             SelfServiceVerificationFlowState = "sent"
 	SELFSERVICEVERIFICATIONFLOWSTATE_PASSED_CHALLENGE SelfServiceVerificationFlowState = "passed_challenge"
 )
 
@@ -36,7 +36,7 @@ func (v *SelfServiceVerificationFlowState) UnmarshalJSON(src []byte) error {
 		return err
 	}
 	enumTypeValue := SelfServiceVerificationFlowState(value)
-	for _, existing := range []SelfServiceVerificationFlowState{"choose_method", "sent_email", "passed_challenge"} {
+	for _, existing := range []SelfServiceVerificationFlowState{"choose_method", "sent", "passed_challenge"} {
 		if existing == enumTypeValue {
 			*v = enumTypeValue
 			return nil

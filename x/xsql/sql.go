@@ -54,6 +54,9 @@ func CleanSQL(t *testing.T, c *pop.Connection) {
 		new(identity.RecoveryAddress).TableName(ctx),
 		new(identity.Identity).TableName(ctx),
 		new(identity.CredentialsTypeTable).TableName(ctx),
+
+		new(code.Code).TableName(ctx),
+
 		"networks",
 		"schema_migration",
 	} {

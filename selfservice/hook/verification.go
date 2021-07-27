@@ -6,12 +6,15 @@ package hook
 import (
 	"net/http"
 
+	"github.com/pkg/errors"
+
 	"github.com/ory/kratos/driver/config"
 	"github.com/ory/kratos/identity"
 	"github.com/ory/kratos/selfservice/flow"
 	"github.com/ory/kratos/selfservice/flow/registration"
 	"github.com/ory/kratos/selfservice/flow/settings"
 	"github.com/ory/kratos/selfservice/flow/verification"
+	"github.com/ory/kratos/selfservice/strategy/code"
 	"github.com/ory/kratos/session"
 	"github.com/ory/kratos/x"
 )
@@ -25,6 +28,8 @@ type (
 		x.CSRFTokenGeneratorProvider
 		verification.StrategyProvider
 		verification.FlowPersistenceProvider
+		identity.PrivilegedPoolProvider
+		code.AuthenticationServiceProvider
 	}
 	Verifier struct {
 		r verifierDependencies
@@ -64,14 +69,27 @@ func (e *Verifier) do(r *http.Request, i *identity.Identity, f flow.Flow) error 
 			return err
 		}
 
-		verificationFlow.State = verification.StateEmailSent
+		verificationFlow.State = verification.StateSent
 
 		if err := e.r.VerificationFlowPersister().CreateVerificationFlow(r.Context(), verificationFlow); err != nil {
 			return err
 		}
 
-		if err := strategy.SendVerificationEmail(r.Context(), verificationFlow, i, address); err != nil {
-			return err
+		switch address.Via {
+		case identity.AddressTypeEmail:
+			if err := strategy.SendVerificationEmail(r.Context(), verificationFlow, i, address); err != nil {
+				return err
+			}
+		case identity.AddressTypePhone:
+			if err := e.r.CodeAuthenticationService().SendCode(r.Context(), verificationFlow, address.Value); err != nil {
+				return err
+			}
+			address.Status = identity.VerifiableAddressStatusSent
+			if err := e.r.PrivilegedIdentityPool().UpdateVerifiableAddress(r.Context(), address); err != nil {
+				return err
+			}
+		default:
+			return errors.New("Unexpected via type")
 		}
 
 	}

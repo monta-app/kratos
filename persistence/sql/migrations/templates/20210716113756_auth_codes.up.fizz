@@ -1,0 +1,11 @@
+create_table("auth_codes") {
+	t.Column("id", "uuid", {primary: true})
+
+  t.Column("identifier", "string")
+  t.Column("code", "string")
+  t.Column("flow_id", "uuid")
+  t.Column("expires_at", "timestamp")
+  t.Column("attempts", "int")
+}
+
+add_index("auth_codes", "flow_id", {"name": "auth_codes_flow_id_idx" })

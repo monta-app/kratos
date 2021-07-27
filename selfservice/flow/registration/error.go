@@ -83,8 +83,8 @@ func (s *ErrorHandler) WriteFlowError(
 		return
 	}
 
-	if expired, inner := s.PrepareReplacementForExpiredFlow(w, r, f, err); inner != nil {
-		s.forward(w, r, f, err)
+	if expired, innerErr := s.PrepareReplacementForExpiredFlow(w, r, f, err); innerErr != nil {
+		s.forward(w, r, f, innerErr)
 		return
 	} else if expired != nil {
 		if f.Type == flow.TypeAPI || x.IsJSONRequest(r) {
@@ -96,24 +96,24 @@ func (s *ErrorHandler) WriteFlowError(
 	}
 
 	f.UI.ResetMessages()
-	if err := f.UI.ParseError(group, err); err != nil {
-		s.forward(w, r, f, err)
+	if innerErr := f.UI.ParseError(group, err); innerErr != nil {
+		s.forward(w, r, f, innerErr)
 		return
 	}
 
-	ds, err := s.d.Config().DefaultIdentityTraitsSchemaURL(r.Context())
-	if err != nil {
-		s.forward(w, r, f, err)
+	ds, innerErr := s.d.Config().DefaultIdentityTraitsSchemaURL(r.Context())
+	if innerErr != nil {
+		s.forward(w, r, f, innerErr)
 		return
 	}
 
-	if err := SortNodes(r.Context(), f.UI.Nodes, ds.String()); err != nil {
-		s.forward(w, r, f, err)
+	if innerErr := SortNodes(r.Context(), f.UI.Nodes, ds.String()); innerErr != nil {
+		s.forward(w, r, f, innerErr)
 		return
 	}
 
-	if err := s.d.RegistrationFlowPersister().UpdateRegistrationFlow(r.Context(), f); err != nil {
-		s.forward(w, r, f, err)
+	if innerErr := s.d.RegistrationFlowPersister().UpdateRegistrationFlow(r.Context(), f); innerErr != nil {
+		s.forward(w, r, f, innerErr)
 		return
 	}
 

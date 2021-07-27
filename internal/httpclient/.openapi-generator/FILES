@@ -68,6 +68,8 @@ docs/SessionAuthenticationMethod.md
 docs/SessionDevice.md
 docs/SettingsFlow.md
 docs/SettingsFlowState.md
+docs/SubmitSelfServiceLoginFlowWithCodeMethod.md
+docs/SubmitSelfServiceRegistrationFlowWithCodeMethodBody.md
 docs/SuccessfulNativeLogin.md
 docs/SuccessfulNativeRegistration.md
 docs/TokenPagination.md
@@ -168,6 +170,8 @@ model_session_authentication_method.go
 model_session_device.go
 model_settings_flow.go
 model_settings_flow_state.go
+model_submit_self_service_login_flow_with_code_method.go
+model_submit_self_service_registration_flow_with_code_method_body.go
 model_successful_native_login.go
 model_successful_native_registration.go
 model_token_pagination.go

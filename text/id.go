@@ -81,6 +81,7 @@ const (
 	InfoNodeLabelEmail                             // 1070007
 	InfoNodeLabelResendOTP                         // 1070008
 	InfoNodeLabelContinue                          // 1070009
+	InfoNodeLabelPhone                             // 1070008
 )
 
 const (
@@ -88,6 +89,8 @@ const (
 	InfoSelfServiceVerificationEmailSent                             // 1080001
 	InfoSelfServiceVerificationSuccessful                            // 1080002
 	InfoSelfServiceVerificationEmailWithCodeSent                     // 1080003
+	InfoSelfServiceVerificationPhoneSent                             // 1080003
+	InfoSelfServicePhoneVerificationSuccessful                       // 1080004
 )
 
 const (
@@ -108,6 +111,9 @@ const (
 	ErrorValidationNoLookup
 	ErrorValidationSuchNoWebAuthnUser
 	ErrorValidationLookupInvalid
+	ErrorValidationInvalidCode
+	ErrorValidationCodeSent
+	ErrorValidationCodeSMSSpam
 )
 
 const (

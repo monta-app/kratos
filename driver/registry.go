@@ -20,6 +20,7 @@ import (
 
 	"github.com/ory/kratos/continuity"
 	"github.com/ory/kratos/courier"
+	"github.com/ory/kratos/driver/clock"
 	"github.com/ory/kratos/hash"
 	"github.com/ory/kratos/schema"
 	"github.com/ory/kratos/selfservice/flow/recovery"
@@ -71,6 +72,7 @@ type Registry interface {
 
 	config.Provider
 	CourierConfig() config.CourierConfigs
+	clock.Provider
 	WithConfig(c *config.Config) Registry
 	WithContextualizer(ctxer contextx.Contextualizer) Registry
 

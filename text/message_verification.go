@@ -27,6 +27,14 @@ func NewInfoSelfServiceVerificationSuccessful() *Message {
 	}
 }
 
+func NewInfoSelfServicePhoneVerificationSuccessful() *Message {
+	return &Message{
+		ID:   InfoSelfServicePhoneVerificationSuccessful,
+		Type: Info,
+		Text: "You successfully verified your phone number.",
+	}
+}
+
 func NewVerificationEmailSent() *Message {
 	return &Message{
 		ID:      InfoSelfServiceVerificationEmailSent,
@@ -77,6 +85,15 @@ func NewVerificationEmailWithCodeSent() *Message {
 		ID:      InfoSelfServiceVerificationEmailWithCodeSent,
 		Type:    Info,
 		Text:    "An email containing a verification code has been sent to the email address you provided.",
+		Context: context(nil),
+	}
+}
+
+func NewVerificationPhoneSent() *Message {
+	return &Message{
+		ID:      InfoSelfServiceVerificationPhoneSent,
+		Type:    Info,
+		Text:    "A message containing a verification code has been sent to the phone number you provided.",
 		Context: context(nil),
 	}
 }
