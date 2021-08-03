@@ -1,0 +1,102 @@
+name: Deploy Dev
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.DEV_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.DEV_AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Get AWS ECR credentials
+        id: ecr-credentials
+        run: |
+          echo "::set-output name=username::AWS"
+          echo "::set-output name=password::`aws ecr get-login-password`"
+
+      - name: Docker build
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          ECR_IMAGE_URL=$ECR_REGISTRY/kratos-dev
+          docker build -f .docker/Dockerfile -t $ECR_IMAGE_URL:$IMAGE_TAG .
+          docker push $ECR_IMAGE_URL:$IMAGE_TAG
+          docker tag $ECR_IMAGE_URL:$IMAGE_TAG $ECR_IMAGE_URL:latest
+          docker push $ECR_IMAGE_URL:latest
+          echo "::set-output name=ECR_IMAGE_URL:$IMAGE_TAG::$ECR_IMAGE_URL:$IMAGE_TAG"
+
+      - name: Post to slack
+        uses: 8398a7/action-slack@v3
+        if: always()
+        with:
+          job_name: Build
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,took,ref
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOYMENT_WEBHOOK_URL }}
+
+  push-manifest:
+    needs: build
+    name: Push manifest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.DEV_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.DEV_AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Check out my other private repo
+        uses: actions/checkout@master
+        with:
+          repository: monta-app/manifests
+          path: 'manifests'
+          token: ${{ secrets.PAT }}
+
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v1
+        with:
+          kustomize-version: "4.4.0"
+
+      - name: Update Kubernetes resources
+        working-directory: ./manifests/apps/kratos/dev
+        run: |
+          kustomize edit set image image=${{ steps.login-ecr.outputs.registry }}\/kratos-dev:${{ github.sha }}
+
+      - name: Commit
+        working-directory: ./manifests
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git commit -am "Bump docker tag"
+      - name: Push
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.PAT }}
+          directory: './manifests'
+          repository: 'monta-app/manifests'
