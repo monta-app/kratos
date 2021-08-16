@@ -12,6 +12,8 @@ type Provider interface {
 	Config() *Configuration
 	OAuth2(ctx context.Context) (*oauth2.Config, error)
 	Claims(ctx context.Context, exchange *oauth2.Token) (*Claims, error)
+	ClaimsFromIdToken(ctx context.Context, rawIdToken string) (*Claims, error)
+	ClaimsFromAccessToken(ctx context.Context, accessToken string) (*Claims, error)
 	AuthCodeURLOptions(r ider) []oauth2.AuthCodeOption
 }
 

@@ -119,3 +119,11 @@ func (g *ProviderVK) Claims(ctx context.Context, exchange *oauth2.Token) (*Claim
 		Birthdate:  user.BirthDay,
 	}, nil
 }
+
+func (g *ProviderVK) ClaimsFromIdToken(ctx context.Context, rawIdToken string) (*Claims, error) {
+	return nil, errors.New("Not implemented yet for VK") //TODO ClaimsFromIdToken for VK
+}
+
+func (g *ProviderVK) ClaimsFromAccessToken(ctx context.Context, accessToken string) (*Claims, error) {
+	return nil, errors.New("Not implemented yet for VK") //TODO ClaimsFromAccessToken for VK
+}

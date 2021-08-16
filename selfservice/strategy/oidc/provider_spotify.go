@@ -92,3 +92,11 @@ func (g *ProviderSpotify) Claims(ctx context.Context, exchange *oauth2.Token) (*
 
 	return claims, nil
 }
+
+func (d *ProviderSpotify) ClaimsFromIdToken(ctx context.Context, rawIdToken string) (*Claims, error) {
+	return nil, errors.New("Not implemented yet for Spotify") //TODO ClaimsFromIdToken for Spotify
+}
+
+func (d *ProviderSpotify) ClaimsFromAccessToken(ctx context.Context, accessToken string) (*Claims, error) {
+	return nil, errors.New("Not implemented yet for Spotify") //TODO ClaimsFromAccessToken for Spotify
+}

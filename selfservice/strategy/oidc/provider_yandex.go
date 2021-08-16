@@ -103,3 +103,11 @@ func (g *ProviderYandex) Claims(ctx context.Context, exchange *oauth2.Token) (*C
 		Birthdate:  user.BirthDay,
 	}, nil
 }
+
+func (g *ProviderYandex) ClaimsFromIdToken(ctx context.Context, rawIdToken string) (*Claims, error) {
+	return nil, errors.New("Not implemented yet for Yandex") //TODO ClaimsFromIdToken for Yandex
+}
+
+func (g *ProviderYandex) ClaimsFromAccessToken(ctx context.Context, accessToken string) (*Claims, error) {
+	return nil, errors.New("Not implemented yet for Yandex") //TODO ClaimsFromAccessToken for Yandex
+}

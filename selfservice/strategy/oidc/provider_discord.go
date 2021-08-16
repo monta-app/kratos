@@ -94,3 +94,11 @@ func (d *ProviderDiscord) Claims(ctx context.Context, exchange *oauth2.Token) (*
 
 	return claims, nil
 }
+
+func (d *ProviderDiscord) ClaimsFromIdToken(ctx context.Context, rawIdToken string) (*Claims, error) {
+	return nil, errors.New("Not implemented yet for Discord") //TODO ClaimsFromIdToken for Discord
+}
+
+func (d *ProviderDiscord) ClaimsFromAccessToken(ctx context.Context, accessToken string) (*Claims, error) {
+	return nil, errors.New("Not implemented yet for Discord") //TODO ClaimsFromAccessToken for Discord
+}

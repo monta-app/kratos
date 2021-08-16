@@ -435,6 +435,12 @@
         },
         "requested_claims": {
           "$ref": "#/definitions/OIDCClaims"
+        },
+        "skip_audience_check": {
+          "title": "Skip audience check",
+          "description": "If true, no audience check performed",
+          "type": "boolean",
+          "default": false
         }
       },
       "additionalProperties": false,

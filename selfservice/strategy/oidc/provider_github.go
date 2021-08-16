@@ -101,3 +101,11 @@ func (g *ProviderGitHub) Claims(ctx context.Context, exchange *oauth2.Token) (*C
 
 	return claims, nil
 }
+
+func (g *ProviderGitHub) ClaimsFromIdToken(ctx context.Context, rawIdToken string) (*Claims, error) {
+	return nil, errors.New("Not implemented yet for GitHub") //TODO ClaimsFromIdToken for GitHub
+}
+
+func (g *ProviderGitHub) ClaimsFromAccessToken(ctx context.Context, accessToken string) (*Claims, error) {
+	return nil, errors.New("Not implemented yet for GitHub") //TODO ClaimsFromAccessToken for GitHub
+}

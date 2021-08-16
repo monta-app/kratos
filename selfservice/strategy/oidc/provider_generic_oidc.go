@@ -9,7 +9,7 @@ import (
 	"github.com/ory/herodot"
 	"github.com/ory/x/stringslice"
 
-	gooidc "github.com/coreos/go-oidc"
+	gooidc "github.com/coreos/go-oidc/v3/oidc"
 )
 
 var _ Provider = new(ProviderGenericOIDC)
@@ -83,8 +83,13 @@ func (g *ProviderGenericOIDC) AuthCodeURLOptions(r ider) []oauth2.AuthCodeOption
 	return options
 }
 
-func (g *ProviderGenericOIDC) verifyAndDecodeClaimsWithProvider(ctx context.Context, provider *gooidc.Provider, raw string) (*Claims, error) {
-	token, err := provider.Verifier(&gooidc.Config{ClientID: g.config.ClientID}).Verify(ctx, raw)
+func (g *ProviderGenericOIDC) verifyAndDecodeClaimsWithProvider(ctx context.Context, provider *gooidc.Provider, rawIdToken string) (*Claims, error) {
+	token, err := provider.
+		Verifier(&gooidc.Config{
+			ClientID:          g.config.ClientID,
+			SkipClientIDCheck: g.config.SkipAudienceCheck,
+		}).
+		Verify(ctx, rawIdToken)
 	if err != nil {
 		return nil, errors.WithStack(herodot.ErrBadRequest.WithReasonf("%s", err))
 	}
@@ -103,10 +108,43 @@ func (g *ProviderGenericOIDC) Claims(ctx context.Context, exchange *oauth2.Token
 		return nil, errors.WithStack(ErrIDTokenMissing)
 	}
 
+	return g.ClaimsFromIdToken(ctx, raw)
+}
+
+func (g *ProviderGenericOIDC) ClaimsFromIdToken(ctx context.Context, rawIdToken string) (*Claims, error) {
 	p, err := g.provider(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return g.verifyAndDecodeClaimsWithProvider(ctx, p, raw)
+	return g.verifyAndDecodeClaimsWithProvider(ctx, p, rawIdToken)
+}
+
+func (g *ProviderGenericOIDC) ClaimsFromAccessToken(ctx context.Context, accessToken string) (*Claims, error) {
+	p, err := g.provider(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	token := tokenAccessor{token: oauth2.Token{AccessToken: accessToken}}
+
+	userinfo, err := p.UserInfo(ctx, &token)
+	if err != nil {
+		return nil, err
+	}
+
+	var claims Claims
+	if err := userinfo.Claims(&claims); err != nil {
+		return nil, errors.WithStack(herodot.ErrBadRequest.WithReasonf("%s", err))
+	}
+
+	return &claims, nil
+}
+
+type tokenAccessor struct {
+	token oauth2.Token
+}
+
+func (a *tokenAccessor) Token() (*oauth2.Token, error) {
+	return &a.token, nil
 }

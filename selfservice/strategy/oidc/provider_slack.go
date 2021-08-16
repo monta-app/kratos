@@ -85,3 +85,11 @@ func (d *ProviderSlack) Claims(ctx context.Context, exchange *oauth2.Token) (*Cl
 
 	return claims, nil
 }
+
+func (d *ProviderSlack) ClaimsFromIdToken(ctx context.Context, rawIdToken string) (*Claims, error) {
+	return nil, errors.New("Not implemented yet for Slack") //TODO ClaimsFromIdToken for Slack
+}
+
+func (d *ProviderSlack) ClaimsFromAccessToken(ctx context.Context, accessToken string) (*Claims, error) {
+	return nil, errors.New("Not implemented yet for Slack") //TODO ClaimsFromAccessToken for Slack
+}

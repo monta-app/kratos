@@ -87,6 +87,9 @@ type Configuration struct {
 	//
 	// More information: https://openid.net/specs/openid-connect-core-1_0.html#ClaimsParameter
 	RequestedClaims json.RawMessage `json:"requested_claims"`
+
+	// If true, no audience check performed.
+	SkipAudienceCheck bool `json:"skip_audience_check"`
 }
 
 func (p Configuration) Redir(public *url.URL) string {
