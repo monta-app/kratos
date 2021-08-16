@@ -44,3 +44,18 @@ type Flow interface {
 type FlowWithRedirect interface {
 	SecureRedirectToOpts(ctx context.Context, cfg config.Provider) (opts []x.SecureRedirectOption)
 }
+
+func IsWebViewFlow(ctx context.Context, conf *config.Config, f Flow) (bool, error) {
+	if f.GetType() != TypeBrowser {
+		return false, nil
+	}
+	requestURL, err := url.Parse(f.GetRequestURL())
+	if err != nil {
+		return false, err
+	}
+	redirectURL := conf.SelfServiceWebViewRedirectURL(ctx)
+	if redirectURL == nil {
+		return false, nil
+	}
+	return requestURL.Query().Get("return_to") == redirectURL.String(), nil
+}

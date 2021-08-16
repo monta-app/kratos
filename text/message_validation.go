@@ -411,3 +411,12 @@ func NewErrorValidationTraitsMismatch() *Message {
 		Type: Error,
 	}
 }
+
+//func NewErrorValidationOIDCUserNotFound() *Message {
+//	return &Message{
+//		ID:      ErrorValidationOIDCUserNotFound,
+//		Text:    "User with the provided identifier not found.",
+//		Type:    Error,
+//		Context: context(nil),
+//	}
+//}

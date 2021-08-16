@@ -80,6 +80,7 @@ type Dependencies interface {
 	x.HTTPClientProvider
 	x.TracingProvider
 
+	identity.ManagementProvider
 	identity.ValidationProvider
 	identity.PrivilegedPoolProvider
 	identity.ActiveCredentialsCounterStrategyProvider

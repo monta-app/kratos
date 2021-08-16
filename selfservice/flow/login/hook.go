@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -235,59 +236,80 @@ func (e *HookExecutor) PostLoginHook(
 		return nil
 	}
 
-	if err := e.d.SessionManager().UpsertAndIssueCookie(r.Context(), w, r, s); err != nil {
-		return errors.WithStack(err)
+	isWebView, err := flow.IsWebViewFlow(r.Context(), e.d.Config(), a)
+	if err != nil {
+		return err
 	}
 
-	e.d.Audit().
-		WithRequest(r).
-		WithField("identity_id", i.ID).
-		WithField("session_id", s.ID).
-		Info("Identity authenticated successfully and was issued an Ory Kratos Session Cookie.")
-
-	trace.SpanFromContext(r.Context()).AddEvent(events.NewLoginSucceeded(r.Context(), &events.LoginSucceededOpts{
-		SessionID:  s.ID,
-		IdentityID: i.ID, FlowType: string(a.Type), RequestedAAL: string(a.RequestedAAL), IsRefresh: a.Refresh, Method: a.Active.String(),
-		SSOProvider: provider,
-	}))
-
-	if x.IsJSONRequest(r) {
-		span.SetAttributes(attribute.String("flow_type", "spa"))
-
-		// Browser flows rely on cookies. Adding tokens in the mix will confuse consumers.
-		s.Token = ""
-
-		// If we detect that whoami would require a higher AAL, we redirect!
-		if _, err := e.requiresAAL2(r, s, a); err != nil {
-			if aalErr := new(session.ErrAALNotSatisfied); errors.As(err, &aalErr) {
-				span.SetAttributes(attribute.String("return_to", aalErr.RedirectTo), attribute.String("redirect_reason", "requires aal2"))
-				e.d.Writer().WriteError(w, r, flow.NewBrowserLocationChangeRequiredError(aalErr.RedirectTo))
-				return nil
-			}
-			return err
+	if !isWebView {
+		if err := e.d.SessionManager().UpsertAndIssueCookie(r.Context(), w, r, s); err != nil {
+			return errors.WithStack(err)
 		}
 
-		// If Kratos is used as a Hydra login provider, we need to redirect back to Hydra by returning a 422 status
-		// with the post login challenge URL as the body.
-		if a.OAuth2LoginChallenge != "" {
-			postChallengeURL, err := e.d.Hydra().AcceptLoginRequest(r.Context(),
-				hydra.AcceptLoginRequestParams{
-					LoginChallenge:        string(a.OAuth2LoginChallenge),
-					IdentityID:            i.ID.String(),
-					SessionID:             s.ID.String(),
-					AuthenticationMethods: s.AMR,
-				})
-			if err != nil {
+		e.d.Audit().
+			WithRequest(r).
+			WithField("identity_id", i.ID).
+			WithField("session_id", s.ID).
+			Info("Identity authenticated successfully and was issued an Ory Kratos Session Cookie.")
+
+		trace.SpanFromContext(r.Context()).AddEvent(events.NewLoginSucceeded(r.Context(), &events.LoginSucceededOpts{
+			SessionID:  s.ID,
+			IdentityID: i.ID, FlowType: string(a.Type), RequestedAAL: string(a.RequestedAAL), IsRefresh: a.Refresh, Method: a.Active.String(),
+			SSOProvider: provider,
+		}))
+
+		if x.IsJSONRequest(r) {
+			span.SetAttributes(attribute.String("flow_type", "spa"))
+
+			// Browser flows rely on cookies. Adding tokens in the mix will confuse consumers.
+			s.Token = ""
+
+			// If we detect that whoami would require a higher AAL, we redirect!
+			if _, err := e.requiresAAL2(r, s, a); err != nil {
+				if aalErr := new(session.ErrAALNotSatisfied); errors.As(err, &aalErr) {
+					span.SetAttributes(attribute.String("return_to", aalErr.RedirectTo), attribute.String("redirect_reason", "requires aal2"))
+					e.d.Writer().WriteError(w, r, flow.NewBrowserLocationChangeRequiredError(aalErr.RedirectTo))
+					return nil
+				}
 				return err
 			}
-			span.SetAttributes(attribute.String("return_to", postChallengeURL), attribute.String("redirect_reason", "oauth2 login challenge"))
-			e.d.Writer().WriteError(w, r, flow.NewBrowserLocationChangeRequiredError(postChallengeURL))
+
+			// If Kratos is used as a Hydra login provider, we need to redirect back to Hydra by returning a 422 status
+			// with the post login challenge URL as the body.
+			if a.OAuth2LoginChallenge != "" {
+				postChallengeURL, err := e.d.Hydra().AcceptLoginRequest(r.Context(),
+					hydra.AcceptLoginRequestParams{
+						LoginChallenge:        string(a.OAuth2LoginChallenge),
+						IdentityID:            i.ID.String(),
+						SessionID:             s.ID.String(),
+						AuthenticationMethods: s.AMR,
+					})
+				if err != nil {
+					return err
+				}
+				span.SetAttributes(attribute.String("return_to", postChallengeURL), attribute.String("redirect_reason", "oauth2 login challenge"))
+				e.d.Writer().WriteError(w, r, flow.NewBrowserLocationChangeRequiredError(postChallengeURL))
+				return nil
+			}
+
+			response := &APIFlowResponse{Session: s}
+			e.d.Writer().Write(w, r, response)
 			return nil
 		}
-
-		response := &APIFlowResponse{Session: s}
-		e.d.Writer().Write(w, r, response)
-		return nil
+	} else {
+		if err := e.d.SessionPersister().UpsertSession(r.Context(), s); err != nil {
+			return errors.WithStack(err)
+		}
+		e.d.Audit().
+			WithRequest(r).
+			WithField("session_id", s.ID).
+			WithField("identity_id", i.ID).
+			Info("Identity authenticated successfully and was issued an Ory Kratos Session Token.")
+		trace.SpanFromContext(r.Context()).AddEvent(events.NewLoginSucceeded(r.Context(), &events.LoginSucceededOpts{
+			SessionID:  s.ID,
+			IdentityID: i.ID, FlowType: string(a.Type), RequestedAAL: string(a.RequestedAAL), IsRefresh: a.Refresh, Method: a.Active.String(),
+			SSOProvider: provider,
+		}))
 	}
 
 	// If we detect that whoami would require a higher AAL, we redirect!
@@ -315,7 +337,26 @@ func (e *HookExecutor) PostLoginHook(
 		span.SetAttributes(attribute.String("return_to", rt), attribute.String("redirect_reason", "oauth2 login challenge"))
 	}
 
-	x.ContentNegotiationRedirection(w, r, s, e.d.Writer(), finalReturnTo)
+	if isWebView {
+		response := &APIFlowResponse{Session: s, Token: s.Token}
+		required, err := e.requiresAAL2(r, s, a)
+		if err != nil {
+			return err
+		}
+		if required {
+			// If AAL is not satisfied, we omit the identity to preserve the user's privacy in case of a phishing attack.
+			response.Session.Identity = nil
+		}
+		w.Header().Set("Content-Type", "application/json")
+		returnTo.Path = path.Join(returnTo.Path, "success")
+		query := returnTo.Query()
+		query.Set("session_token", s.Token)
+		returnTo.RawQuery = query.Encode()
+		w.Header().Set("Location", returnTo.String())
+		e.d.Writer().WriteCode(w, r, http.StatusSeeOther, response)
+	} else {
+		x.ContentNegotiationRedirection(w, r, s, e.d.Writer(), finalReturnTo)
+	}
 	return nil
 }
 

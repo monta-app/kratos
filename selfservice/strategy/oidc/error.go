@@ -21,6 +21,10 @@ var (
 	ErrIDTokenMissing = herodot.ErrBadRequest.
 				WithError("authentication failed because id_token is missing").
 				WithReasonf(`Authentication failed because no id_token was returned. Please accept the "openid" permission and try again.`)
+
+	ErrProviderNoAPISupport = herodot.ErrBadRequest.
+				WithError("request failed because oidc provider does not implement API flows").
+				WithReasonf(`Request failed because oidc provider does not implement API flows.`)
 )
 
 func logUpstreamError(l *logrusx.Logger, resp *http.Response) error {

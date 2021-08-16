@@ -73,12 +73,15 @@ func TestStrategy(t *testing.T) {
 	routerP := x.NewRouterPublic()
 	routerA := x.NewRouterAdmin()
 	ts, _ := testhelpers.NewKratosServerWithRouters(t, reg, routerP, routerA)
-	invalid := newOIDCProvider(t, ts, remotePublic, remoteAdmin, "invalid-issuer")
+	invalid := newOIDCProvider(t, ts, remotePublic, remoteAdmin, "invalid-issuer", "", nil)
+	testCallbackUrl := newTestCallback(t, reg)
+	webviewRedirectURI := ts.URL + "/self-service/oidc/webview"
+	validProviderConfig := newOIDCProvider(t, ts, remotePublic, remoteAdmin, "valid", testCallbackUrl, nil)
 	viperSetProviderConfig(
 		t,
 		conf,
-		newOIDCProvider(t, ts, remotePublic, remoteAdmin, "valid"),
-		newOIDCProvider(t, ts, remotePublic, remoteAdmin, "secondProvider"),
+		validProviderConfig,
+		newOIDCProvider(t, ts, remotePublic, remoteAdmin, "secondProvider", "", nil),
 		oidc.Configuration{
 			Provider:     "generic",
 			ID:           "invalid-issuer",
@@ -88,12 +91,14 @@ func TestStrategy(t *testing.T) {
 			IssuerURL: strings.Replace(remotePublic, "localhost", "127.0.0.1", 1) + "/",
 			Mapper:    "file://./stub/oidc.hydra.jsonnet",
 		},
+		newOIDCProvider(t, ts, remotePublic, remoteAdmin, "check_audience", testCallbackUrl, []string{"test.audience"}),
 	)
 
 	conf.MustSet(ctx, config.ViperKeySelfServiceRegistrationEnabled, true)
 	testhelpers.SetDefaultIdentitySchema(conf, "file://./stub/registration.schema.json")
 	conf.MustSet(ctx, config.HookStrategyKey(config.ViperKeySelfServiceRegistrationAfter,
 		identity.CredentialsTypeOIDC.String()), []config.SelfServiceHook{{Name: "session"}})
+	conf.MustSet(ctx, config.ViperKeySelfServiceWebViewRedirectURL, webviewRedirectURI)
 
 	t.Logf("Kratos Public URL: %s", ts.URL)
 	t.Logf("Kratos Error URL: %s", errTS.URL)
@@ -145,6 +150,7 @@ func TestStrategy(t *testing.T) {
 
 	makeRequestWithCookieJar := func(t *testing.T, provider string, action string, fv url.Values, jar *cookiejar.Jar) (*http.Response, []byte) {
 		fv.Set("provider", provider)
+		fv.Set("method", "oidc")
 		res, err := testhelpers.NewClientWithCookieJar(t, jar, false).PostForm(action, fv)
 		require.NoError(t, err, action)
 
@@ -402,6 +408,16 @@ func TestStrategy(t *testing.T) {
 		assert.Contains(t, gjson.GetBytes(body, "ui.nodes.#(attributes.name==traits.subject).messages.0.text").String(), "is not valid", "%s\n%s", gjson.GetBytes(body, "ui.nodes.#(attributes.name==traits.subject)").Raw, body)
 	})
 
+	t.Run("case=should fail because the audience is mismatching", func(t *testing.T) {
+		subject = "foo@bar.com"
+		scope = []string{"openid"}
+
+		r := newBrowserRegistrationFlow(t, returnTS.URL, time.Minute)
+		action := assertFormValues(t, r.ID, "check_audience")
+		_, body := makeRequest(t, "check_audience", action, url.Values{})
+		assert.Contains(t, gjson.GetBytes(body, "ui.messages.0.text").String(), "audience not valid", "%s", body)
+	})
+
 	t.Run("case=cannot register multiple accounts with the same OIDC account", func(t *testing.T) {
 		subject = "oidc-register-then-login@ory.sh"
 		scope = []string{"openid", "offline"}
@@ -563,7 +579,7 @@ func TestStrategy(t *testing.T) {
 		viperSetProviderConfig(
 			t,
 			conf,
-			newOIDCProvider(t, ts, remotePublic, remoteAdmin, "valid"),
+			newOIDCProvider(t, ts, remotePublic, remoteAdmin, "valid", "", nil),
 			oidc.Configuration{
 				Provider:     "test-provider",
 				ID:           "test-provider",
@@ -1386,7 +1402,10 @@ func TestDisabledEndpoint(t *testing.T) {
 
 		t.Run("flow=login", func(t *testing.T) {
 			f := testhelpers.InitializeLoginFlowViaAPI(t, c, publicTS, false)
-			res, err := c.PostForm(f.Ui.Action, url.Values{"provider": {"oidc"}})
+			res, err := c.PostForm(f.Ui.Action, url.Values{
+				"method":   {"oidc"},
+				"provider": {"valid"},
+				"id_token": {"fake_token"}})
 			require.NoError(t, err)
 			assert.Equal(t, http.StatusNotFound, res.StatusCode)
 
@@ -1396,7 +1415,10 @@ func TestDisabledEndpoint(t *testing.T) {
 
 		t.Run("flow=registration", func(t *testing.T) {
 			f := testhelpers.InitializeRegistrationFlowViaAPI(t, c, publicTS)
-			res, err := c.PostForm(f.Ui.Action, url.Values{"provider": {"oidc"}})
+			res, err := c.PostForm(f.Ui.Action, url.Values{
+				"method":   {"oidc"},
+				"provider": {"oidc"},
+				"id_token": {"fake_token"}})
 			require.NoError(t, err)
 			assert.Equal(t, http.StatusNotFound, res.StatusCode)
 
@@ -1422,7 +1444,7 @@ func TestPostEndpointRedirect(t *testing.T) {
 	viperSetProviderConfig(
 		t,
 		conf,
-		newOIDCProvider(t, publicTS, remotePublic, remoteAdmin, "apple"),
+		newOIDCProvider(t, publicTS, remotePublic, remoteAdmin, "apple", "", nil),
 	)
 
 	t.Run("case=should redirect to GET and preserve parameters"+publicTS.URL, func(t *testing.T) {

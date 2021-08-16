@@ -1115,6 +1115,15 @@
         "default_browser_return_url": {
           "$ref": "#/definitions/defaultReturnTo"
         },
+        "webview_redirect_uri": {
+          "type": "string",
+          "title": "Final webview redirect URI",
+          "description": "Mobile app should detect this webview redirect and read a session token from the response body.",
+          "format": "uri",
+          "examples": [
+            "https://auth.myexample.org/oidc/success"
+          ]
+        },
         "allowed_return_urls": {
           "title": "Allowed Return To URLs",
           "description": "List of URLs that are allowed to be redirected to. A redirection request is made by appending `?return_to=...` to Login, Registration, and other self-service flows.",
