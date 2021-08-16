@@ -104,6 +104,7 @@ func SubmitRegistrationForm(
 	isSPA bool,
 	expectedStatusCode int,
 	expectedURL string,
+	opts ...InitFlowWithOption,
 ) string {
 	if hc == nil {
 		hc = new(http.Client)
@@ -114,7 +115,7 @@ func SubmitRegistrationForm(
 	if isAPI {
 		payload = InitializeRegistrationFlowViaAPI(t, hc, publicTS)
 	} else {
-		payload = InitializeRegistrationFlowViaBrowser(t, hc, publicTS, isSPA)
+		payload = InitializeRegistrationFlowViaBrowser(t, hc, publicTS, isSPA, opts...)
 	}
 
 	time.Sleep(time.Millisecond) // add a bit of delay to allow `1ns` to time out.

@@ -2,6 +2,8 @@ package registration
 
 import (
 	"net/http"
+	"path"
+	"strconv"
 
 	"github.com/ory/kratos/ui/node"
 
@@ -115,7 +117,38 @@ func (s *ErrorHandler) WriteFlowError(
 	}
 
 	if f.Type == flow.TypeBrowser && !x.IsJSONRequest(r) {
-		http.Redirect(w, r, f.AppendTo(s.d.Config().SelfServiceFlowRegistrationUI(r.Context())).String(), http.StatusFound)
+		isWebView, innerErr := flow.IsWebViewFlow(s.d.Config(r.Context()), f)
+		if innerErr != nil {
+			s.forward(w, r, f, innerErr)
+			return
+		}
+
+		var redirectLocation = ""
+		if isWebView {
+			c := s.d.Config(r.Context())
+			returnTo, innerErr := x.SecureRedirectTo(r, c.SelfServiceBrowserDefaultReturnTo(),
+				x.SecureRedirectUseSourceURL(f.RequestURL),
+				x.SecureRedirectAllowURLs(c.SelfServiceBrowserAllowedReturnToDomains()),
+				x.SecureRedirectAllowSelfServiceURLs(c.SelfPublicURL()),
+				x.SecureRedirectOverrideDefaultReturnTo(s.d.Config(r.Context()).SelfServiceFlowLoginReturnTo(f.Active.String())),
+			)
+			if innerErr != nil {
+				s.forward(w, r, f, innerErr)
+				return
+			}
+
+			query := returnTo.Query()
+
+			query.Set("code", strconv.Itoa(int(f.UI.Messages[0].ID)))
+			query.Set("message", f.UI.Messages[0].Text)
+			returnTo.RawQuery = query.Encode()
+			returnTo.Path = path.Join(returnTo.Path, "error")
+			redirectLocation = returnTo.String()
+
+		} else {
+			redirectLocation = f.AppendTo(s.d.Config().SelfServiceFlowRegistrationUI(r.Context())).String()
+		}
+		http.Redirect(w, r, redirectLocation, http.StatusFound)
 		return
 	}
 

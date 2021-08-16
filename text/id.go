@@ -101,6 +101,7 @@ const (
 	ErrorValidationNoLookup
 	ErrorValidationSuchNoWebAuthnUser
 	ErrorValidationLookupInvalid
+	ErrorValidationOIDCUserNotFound
 )
 
 const (

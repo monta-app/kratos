@@ -64,6 +64,7 @@ type dependencies interface {
 	x.WriterProvider
 	x.HTTPClientProvider
 
+	identity.ManagementProvider
 	identity.ValidationProvider
 	identity.PrivilegedPoolProvider
 	identity.ActiveCredentialsCounterStrategyProvider
@@ -207,10 +208,6 @@ func (s *Strategy) validateFlow(ctx context.Context, r *http.Request, rid uuid.U
 	}
 
 	if ar, err := s.d.RegistrationFlowPersister().GetRegistrationFlow(ctx, rid); err == nil {
-		if ar.Type != flow.TypeBrowser {
-			return ar, ErrAPIFlowNotSupported
-		}
-
 		if err := ar.Valid(); err != nil {
 			return ar, err
 		}
@@ -218,10 +215,6 @@ func (s *Strategy) validateFlow(ctx context.Context, r *http.Request, rid uuid.U
 	}
 
 	if ar, err := s.d.LoginFlowPersister().GetLoginFlow(ctx, rid); err == nil {
-		if ar.Type != flow.TypeBrowser {
-			return ar, ErrAPIFlowNotSupported
-		}
-
 		if err := ar.Valid(); err != nil {
 			return ar, err
 		}
@@ -230,10 +223,6 @@ func (s *Strategy) validateFlow(ctx context.Context, r *http.Request, rid uuid.U
 
 	ar, err := s.d.SettingsFlowPersister().GetSettingsFlow(ctx, rid)
 	if err == nil {
-		if ar.Type != flow.TypeBrowser {
-			return ar, ErrAPIFlowNotSupported
-		}
-
 		sess, err := s.d.SessionManager().FetchFromRequest(ctx, r)
 		if err != nil {
 			return ar, err
