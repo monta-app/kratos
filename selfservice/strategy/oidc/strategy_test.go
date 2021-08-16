@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ory/x/sqlxx"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -28,8 +29,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-
-	"github.com/ory/x/sqlxx"
 
 	"github.com/ory/x/urlx"
 
@@ -68,10 +67,13 @@ func TestStrategy(t *testing.T) {
 	routerA := x.NewRouterAdmin()
 	ts, _ := testhelpers.NewKratosServerWithRouters(t, reg, routerP, routerA)
 
+	testCallbackUrl := newTestCallback(t, reg)
+	clientID := "client"
+	clientSecret := "secret"
 	viperSetProviderConfig(
 		t,
 		conf,
-		newOIDCProvider(t, ts, remotePublic, remoteAdmin, "valid", "client"),
+		newOIDCProvider(t, ts, remotePublic, remoteAdmin, "valid", clientID, clientSecret, testCallbackUrl),
 		oidc.Configuration{
 			Provider:     "generic",
 			ID:           "invalid-issuer",
@@ -138,6 +140,7 @@ func TestStrategy(t *testing.T) {
 
 	var makeRequestWithCookieJar = func(t *testing.T, provider string, action string, fv url.Values, jar *cookiejar.Jar) (*http.Response, []byte) {
 		fv.Set("provider", provider)
+		fv.Set("method", "oidc")
 		res, err := newClient(t, jar).PostForm(action, fv)
 		require.NoError(t, err, action)
 
@@ -183,10 +186,10 @@ func TestStrategy(t *testing.T) {
 		assert.Equal(t, claims.metadataPublic.picture, gjson.GetBytes(body, "identity.metadata_public.picture").String(), "%s", body)
 	}
 
-	var newLoginFlow = func(t *testing.T, redirectTo string, exp time.Duration) (req *login.Flow) {
+	var newLoginFlow = func(t *testing.T, redirectTo string, exp time.Duration, flowType flow.Type) (req *login.Flow) {
 		// Use NewLoginFlow to instantiate the request but change the things we need to control a copy of it.
 		req, err := reg.LoginHandler().NewLoginFlow(httptest.NewRecorder(),
-			&http.Request{URL: urlx.ParseOrPanic(redirectTo)}, flow.TypeBrowser)
+			&http.Request{URL: urlx.ParseOrPanic(redirectTo)}, flowType)
 		require.NoError(t, err)
 		req.RequestURL = redirectTo
 		req.ExpiresAt = time.Now().Add(exp)
@@ -199,6 +202,10 @@ func TestStrategy(t *testing.T) {
 		require.Len(t, got.UI.Nodes, len(req.UI.Nodes), "%+v", got)
 
 		return
+	}
+
+	var newLoginFlowBrowser = func(t *testing.T, redirectTo string, exp time.Duration) (req *login.Flow) {
+		return newLoginFlow(t, redirectTo, exp, flow.TypeBrowser)
 	}
 
 	var newRegistrationFlow = func(t *testing.T, redirectTo string, exp time.Duration) *registration.Flow {
@@ -220,7 +227,7 @@ func TestStrategy(t *testing.T) {
 
 	t.Run("case=should fail because provider does not exist", func(t *testing.T) {
 		for k, v := range []string{
-			loginAction(newLoginFlow(t, returnTS.URL, time.Minute).ID),
+			loginAction(newLoginFlowBrowser(t, returnTS.URL, time.Minute).ID),
 			registerAction(newRegistrationFlow(t, returnTS.URL, time.Minute).ID),
 		} {
 			t.Run(fmt.Sprintf("case=%d", k), func(t *testing.T) {
@@ -230,9 +237,57 @@ func TestStrategy(t *testing.T) {
 		}
 	})
 
+	var expectValidationError = func(t *testing.T, isAPI, forced, isSPA bool, values func(url.Values)) string {
+		return testhelpers.SubmitLoginForm(t, isAPI, nil, ts, values,
+			isSPA, forced,
+			testhelpers.ExpectStatusCode(isAPI || isSPA, http.StatusBadRequest, http.StatusOK),
+			testhelpers.ExpectURL(isAPI || isSPA, ts.URL+login.RouteSubmitFlow, conf.SelfServiceFlowLoginUI().String()))
+	}
+
+	t.Run("case=api should fail because neither id_token nor access_token was provided", func(t *testing.T) {
+		var check = func(t *testing.T, body string) {
+			assert.NotEmpty(t, gjson.Get(body, "id").String(), "%s", body)
+			assert.Contains(t, gjson.Get(body, "ui.action").String(), ts.URL+login.RouteSubmitFlow, "%s", body)
+
+			assert.Contains(t,
+				gjson.Get(body, "ui.messages.0.text").String(),
+				"properties id_token and access_token are missing",
+				"%s", body)
+			//assert.Len(t, gjson.Get(body, "ui.nodes").Array(), 4) //TODO Get rid of password fields
+		}
+
+		var values = func(v url.Values) {
+			v.Set("method", "oidc")
+			v.Set("provider", "valid")
+		}
+
+		check(t, expectValidationError(t, true, false, false, values))
+	})
+
+	t.Run("case=api should fail because id_token is invalid", func(t *testing.T) {
+		var check = func(t *testing.T, body string) {
+			assert.NotEmpty(t, gjson.Get(body, "id").String(), "%s", body)
+			assert.Contains(t, gjson.Get(body, "ui.action").String(), ts.URL+login.RouteSubmitFlow, "%s", body)
+
+			assert.Contains(t,
+				gjson.Get(body, "ui.messages.0.text").String(),
+				"malformed jwt",
+				"%s", body)
+			//assert.Len(t, gjson.Get(body, "ui.nodes").Array(), 4) //TODO Get rid of password fields
+		}
+
+		var values = func(v url.Values) {
+			v.Set("method", "oidc")
+			v.Set("provider", "valid")
+			v.Set("id_token", "invalid-token")
+		}
+
+		check(t, expectValidationError(t, true, false, false, values))
+	})
+
 	t.Run("case=should fail because the issuer is mismatching", func(t *testing.T) {
 		for k, v := range []string{
-			loginAction(newLoginFlow(t, returnTS.URL, time.Minute).ID),
+			loginAction(newLoginFlowBrowser(t, returnTS.URL, time.Minute).ID),
 			registerAction(newRegistrationFlow(t, returnTS.URL, time.Minute).ID),
 		} {
 			t.Run(fmt.Sprintf("case=%d", k), func(t *testing.T) {
@@ -253,7 +308,7 @@ func TestStrategy(t *testing.T) {
 
 	t.Run("case=should fail because the flow is expired", func(t *testing.T) {
 		for k, v := range []uuid.UUID{
-			newLoginFlow(t, returnTS.URL, -time.Minute).ID,
+			newLoginFlowBrowser(t, returnTS.URL, -time.Minute).ID,
 			newRegistrationFlow(t, returnTS.URL, -time.Minute).ID} {
 			t.Run(fmt.Sprintf("case=%d", k), func(t *testing.T) {
 				action := afv(t, v, "valid")
@@ -271,7 +326,7 @@ func TestStrategy(t *testing.T) {
 		scope = []string{}
 
 		for k, v := range []uuid.UUID{
-			newLoginFlow(t, returnTS.URL, time.Minute).ID,
+			newLoginFlowBrowser(t, returnTS.URL, time.Minute).ID,
 			newRegistrationFlow(t, returnTS.URL, time.Minute).ID} {
 			t.Run(fmt.Sprintf("case=%d", k), func(t *testing.T) {
 				action := afv(t, v, "valid")
@@ -305,7 +360,7 @@ func TestStrategy(t *testing.T) {
 	})
 
 	t.Run("case=should fail login because scope was not provided", func(t *testing.T) {
-		r := newLoginFlow(t, returnTS.URL, time.Minute)
+		r := newLoginFlowBrowser(t, returnTS.URL, time.Minute)
 		action := afv(t, r.ID, "valid")
 		res, body := makeRequest(t, "valid", action, url.Values{})
 		aue(t, res, body, "no id_token was returned")
@@ -349,7 +404,7 @@ func TestStrategy(t *testing.T) {
 		})
 
 		t.Run("case=should pass login", func(t *testing.T) {
-			r := newLoginFlow(t, returnTS.URL, time.Minute)
+			r := newLoginFlowBrowser(t, returnTS.URL, time.Minute)
 			action := afv(t, r.ID, "valid")
 			res, body := makeRequest(t, "valid", action, url.Values{})
 			ai(t, res, body)
@@ -362,10 +417,29 @@ func TestStrategy(t *testing.T) {
 		scope = []string{"openid"}
 
 		t.Run("case=should pass login", func(t *testing.T) {
-			r := newLoginFlow(t, returnTS.URL, time.Minute)
-			action := afv(t, r.ID, "valid")
-			res, body := makeRequest(t, "valid", action, url.Values{})
-			ai(t, res, body)
+			t.Run("case=api with id_token", func(t *testing.T) {
+				err, tokens := getOauthTokens(t, remotePublic, clientID, clientSecret, testCallbackUrl)
+				require.NoError(t, err)
+
+				var values = func(v url.Values) {
+					v.Set("method", "oidc")
+					v.Set("provider", "valid")
+					v.Set("id_token", tokens.IdToken)
+				}
+
+				body := testhelpers.SubmitLoginForm(t, true, nil, ts, values,
+					false, false, http.StatusOK, ts.URL+login.RouteSubmitFlow)
+
+				assert.Equal(t, subject, gjson.Get(body, "session.identity.traits.subject").String(), "%s", body)
+				st := gjson.Get(body, "session_token").String()
+				assert.NotEmpty(t, st, "%s", body)
+			})
+			t.Run("case=browser", func(t *testing.T) {
+				flowId := newLoginFlowBrowser(t, returnTS.URL, time.Minute).ID
+				action := afv(t, flowId, "valid")
+				res, body := makeRequest(t, "valid", action, url.Values{})
+				ai(t, res, body)
+			})
 		})
 	})
 
@@ -395,7 +469,7 @@ func TestStrategy(t *testing.T) {
 		})
 
 		t.Run("case=should pass second time registration", func(t *testing.T) {
-			r := newLoginFlow(t, returnTS.URL, time.Minute)
+			r := newLoginFlowBrowser(t, returnTS.URL, time.Minute)
 			action := afv(t, r.ID, "valid")
 			res, body := makeRequest(t, "valid", action, url.Values{})
 			ai(t, res, body)
@@ -463,7 +537,7 @@ func TestStrategy(t *testing.T) {
 		})
 
 		t.Run("case=should fail login", func(t *testing.T) {
-			r := newLoginFlow(t, returnTS.URL, time.Minute)
+			r := newLoginFlowBrowser(t, returnTS.URL, time.Minute)
 			action := afv(t, r.ID, "valid")
 			res, body := makeRequest(t, "valid", action, url.Values{})
 			aue(t, res, body, "An account with the same identifier (email, phone, username, ...) exists already.")
@@ -476,10 +550,10 @@ func TestStrategy(t *testing.T) {
 
 		fv := url.Values{"traits.name": {"valid-name"}}
 		jar, _ := cookiejar.New(nil)
-		r1 := newLoginFlow(t, returnTS.URL, time.Minute)
+		r1 := newLoginFlowBrowser(t, returnTS.URL, time.Minute)
 		res1, body1 := makeRequestWithCookieJar(t, "valid", afv(t, r1.ID, "valid"), fv, jar)
 		ai(t, res1, body1)
-		r2 := newLoginFlow(t, returnTS.URL, time.Minute)
+		r2 := newLoginFlowBrowser(t, returnTS.URL, time.Minute)
 		res2, body2 := makeRequestWithCookieJar(t, "valid", afv(t, r2.ID, "valid"), fv, jar)
 		ai(t, res2, body2)
 		assert.Equal(t, body1, body2)
@@ -491,10 +565,10 @@ func TestStrategy(t *testing.T) {
 
 		fv := url.Values{"traits.name": {"valid-name"}}
 		jar, _ := cookiejar.New(nil)
-		r1 := newLoginFlow(t, returnTS.URL, time.Minute)
+		r1 := newLoginFlowBrowser(t, returnTS.URL, time.Minute)
 		res1, body1 := makeRequestWithCookieJar(t, "valid", afv(t, r1.ID, "valid"), fv, jar)
 		ai(t, res1, body1)
-		r2 := newLoginFlow(t, returnTS.URL, time.Minute)
+		r2 := newLoginFlowBrowser(t, returnTS.URL, time.Minute)
 		require.NoError(t, reg.LoginFlowPersister().ForceLoginFlow(context.Background(), r2.ID))
 		res2, body2 := makeRequestWithCookieJar(t, "valid", afv(t, r2.ID, "valid"), fv, jar)
 		ai(t, res2, body2)
@@ -519,12 +593,19 @@ func TestStrategy(t *testing.T) {
 
 	t.Run("method=TestPopulateLoginMethod", func(t *testing.T) {
 		conf.MustSet(ctx, config.ViperKeyPublicBaseURL, "https://foo/")
+		for k, flowType := range map[string]flow.Type{
+			"api":     flow.TypeAPI,
+			"browser": flow.TypeBrowser,
+		} {
+			t.Run(fmt.Sprintf("case=%s", k), func(t *testing.T) {
 
-		sr, err := login.NewFlow(conf, time.Minute, "nosurf", &http.Request{URL: urlx.ParseOrPanic("/")}, flow.TypeBrowser)
-		require.NoError(t, err)
-		require.NoError(t, reg.LoginStrategies(context.Background()).MustStrategy(identity.CredentialsTypeOIDC).(*oidc.Strategy).PopulateLoginMethod(&http.Request{}, identity.AuthenticatorAssuranceLevel1, sr))
+				sr, err := login.NewFlow(conf, time.Minute, "nosurf", &http.Request{URL: urlx.ParseOrPanic("/")}, flowType)
+				require.NoError(t, err)
+				require.NoError(t, reg.LoginStrategies(context.Background()).MustStrategy(identity.CredentialsTypeOIDC).(*oidc.Strategy).PopulateLoginMethod(&http.Request{}, identity.AuthenticatorAssuranceLevel1, sr))
 
-		snapshotx.SnapshotTExcept(t, sr.UI, []string{"action", "nodes.0.attributes.value"})
+				snapshotx.SnapshotTExcept(t, sr.UI, []string{"action", "nodes.0.attributes.value"})
+			})
+		}
 	})
 }
 
@@ -658,7 +739,10 @@ func TestDisabledEndpoint(t *testing.T) {
 
 		t.Run("flow=login", func(t *testing.T) {
 			f := testhelpers.InitializeLoginFlowViaAPI(t, c, publicTS, false)
-			res, err := c.PostForm(f.Ui.Action, url.Values{"provider": {"oidc"}})
+			res, err := c.PostForm(f.Ui.Action, url.Values{
+				"method":   {"oidc"},
+				"provider": {"valid"},
+				"id_token": {"fake_token"}})
 			require.NoError(t, err)
 			assert.Equal(t, http.StatusNotFound, res.StatusCode)
 
@@ -694,7 +778,7 @@ func TestPostEndpointRedirect(t *testing.T) {
 	viperSetProviderConfig(
 		t,
 		conf,
-		newOIDCProvider(t, publicTS, remotePublic, remoteAdmin, "apple", "client"),
+		newOIDCProvider(t, publicTS, remotePublic, remoteAdmin, "apple", "client", "", ""),
 	)
 	testhelpers.InitKratosServers(t, reg, publicTS, adminTS)
 
