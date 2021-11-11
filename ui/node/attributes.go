@@ -9,6 +9,7 @@ const (
 	InputAttributeTypeCheckbox      InputAttributeType = "checkbox"
 	InputAttributeTypeHidden        InputAttributeType = "hidden"
 	InputAttributeTypeEmail         InputAttributeType = "email"
+	InputAttributeTypePhone         InputAttributeType = "phone"
 	InputAttributeTypeSubmit        InputAttributeType = "submit"
 	InputAttributeTypeButton        InputAttributeType = "button"
 	InputAttributeTypeDateTimeLocal InputAttributeType = "datetime-local"

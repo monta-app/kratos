@@ -14,4 +14,3 @@ test/e2e/.bin
 pkged.go
 coverage.*
 schema.sql
-

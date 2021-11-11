@@ -1,21 +1,18 @@
-package link
+package token
 
 import (
 	"context"
 	"time"
 
-	"github.com/ory/kratos/selfservice/flow"
-
-	"github.com/ory/kratos/corp"
-
 	"github.com/gofrs/uuid"
 	"github.com/pkg/errors"
 
-	"github.com/ory/x/randx"
-
+	"github.com/ory/kratos/corp"
 	"github.com/ory/kratos/identity"
+	"github.com/ory/kratos/selfservice/flow"
 	"github.com/ory/kratos/selfservice/flow/verification"
 	"github.com/ory/kratos/x"
+	"github.com/ory/x/randx"
 )
 
 type VerificationToken struct {
@@ -56,11 +53,22 @@ func (VerificationToken) TableName(ctx context.Context) string {
 	return corp.ContextualizeTableName(ctx, "identity_verification_tokens")
 }
 
-func NewSelfServiceVerificationToken(address *identity.VerifiableAddress, f *verification.Flow, expiresIn time.Duration) *VerificationToken {
+func NewLinkVerification(address *identity.VerifiableAddress, f *verification.Flow, expiresIn time.Duration) *VerificationToken {
 	now := time.Now().UTC()
 	return &VerificationToken{
 		ID:                x.NewUUID(),
 		Token:             randx.MustString(32, randx.AlphaNum),
+		VerifiableAddress: address,
+		ExpiresAt:         now.Add(expiresIn),
+		IssuedAt:          now,
+		FlowID:            uuid.NullUUID{UUID: f.ID, Valid: true}}
+}
+
+func NewOTPVerification(address *identity.VerifiableAddress, f *verification.Flow, expiresIn time.Duration) *VerificationToken {
+	now := time.Now().UTC()
+	return &VerificationToken{
+		ID:                x.NewUUID(),
+		Token:             randx.MustString(6, randx.Numeric),
 		VerifiableAddress: address,
 		ExpiresAt:         now.Add(expiresIn),
 		IssuedAt:          now,

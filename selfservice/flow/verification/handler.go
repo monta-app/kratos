@@ -151,23 +151,27 @@ type initializeSelfServiceVerificationFlowForBrowsers struct {
 //       303: emptyResponse
 //       500: jsonError
 func (h *Handler) initBrowserFlow(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	if !h.d.Config(r.Context()).SelfServiceFlowVerificationEnabled() {
-		h.d.SelfServiceErrorManager().Forward(r.Context(), w, r, errors.WithStack(herodot.ErrBadRequest.WithReasonf("Verification is not allowed because it was disabled.")))
+	ctx := r.Context()
+	conf := h.d.Config(ctx)
+	errorManager := h.d.SelfServiceErrorManager()
+
+	if !conf.SelfServiceFlowVerificationEnabled() {
+		errorManager.Forward(ctx, w, r, errors.WithStack(herodot.ErrBadRequest.WithReasonf("Verification is not allowed because it was disabled.")))
 		return
 	}
 
-	req, err := NewFlow(h.d.Config(r.Context()), h.d.Config(r.Context()).SelfServiceFlowVerificationRequestLifespan(), h.d.GenerateCSRFToken(r), r, h.d.VerificationStrategies(r.Context()), flow.TypeBrowser)
+	req, err := NewFlow(conf, conf.SelfServiceFlowVerificationRequestLifespan(), h.d.GenerateCSRFToken(r), r, h.d.VerificationStrategies(ctx), flow.TypeBrowser)
 	if err != nil {
-		h.d.SelfServiceErrorManager().Forward(r.Context(), w, r, err)
+		errorManager.Forward(r.Context(), w, r, err)
 		return
 	}
 
-	if err := h.d.VerificationFlowPersister().CreateVerificationFlow(r.Context(), req); err != nil {
-		h.d.SelfServiceErrorManager().Forward(r.Context(), w, r, err)
+	if err := h.d.VerificationFlowPersister().CreateVerificationFlow(ctx, req); err != nil {
+		errorManager.Forward(ctx, w, r, err)
 		return
 	}
 
-	redirTo := req.AppendTo(h.d.Config(r.Context()).SelfServiceFlowVerificationUI()).String()
+	redirTo := req.AppendTo(conf.SelfServiceFlowVerificationUI()).String()
 	x.AcceptToRedirectOrJSON(w, r, h.d.Writer(), req, redirTo)
 }
 

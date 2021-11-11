@@ -11,7 +11,9 @@ import (
 
 	"github.com/ory/x/httpx"
 
-	"github.com/gobuffalo/pop/v6"
+	"github.com/ory/kratos/selfservice/token"
+
+	"github.com/ory/kratos/selfservice/strategy/otp"
 
 	"github.com/ory/nosurf"
 
@@ -27,6 +29,8 @@ import (
 	"github.com/ory/kratos/corp"
 
 	prometheus "github.com/ory/x/prometheusx"
+
+	"github.com/gobuffalo/pop/v6"
 
 	"github.com/ory/kratos/cipher"
 	"github.com/ory/kratos/continuity"
@@ -128,6 +132,7 @@ type RegistryDefault struct {
 	selfserviceVerificationExecutor *verification.HookExecutor
 
 	selfserviceLinkSender *link.Sender
+	selfserviceOTPSender  *otp.Sender
 
 	selfserviceRecoveryErrorHandler *recovery.ErrorHandler
 	selfserviceRecoveryHandler      *recovery.Handler
@@ -274,6 +279,7 @@ func (m *RegistryDefault) selfServiceStrategies() []interface{} {
 		m.selfserviceStrategies = []interface{}{
 			password2.NewStrategy(m),
 			oidc.NewStrategy(m),
+			otp.NewStrategy(m),
 			profile.NewStrategy(m),
 			link.NewStrategy(m),
 			totp.NewStrategy(m),
@@ -639,11 +645,11 @@ func (m *RegistryDefault) CourierPersister() courier.Persister {
 	return m.persister
 }
 
-func (m *RegistryDefault) RecoveryTokenPersister() link.RecoveryTokenPersister {
+func (m *RegistryDefault) RecoveryTokenPersister() token.RecoveryTokenPersister {
 	return m.Persister()
 }
 
-func (m *RegistryDefault) VerificationTokenPersister() link.VerificationTokenPersister {
+func (m *RegistryDefault) VerificationTokenPersister() token.VerificationTokenPersister {
 	return m.Persister()
 }
 

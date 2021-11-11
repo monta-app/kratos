@@ -156,6 +156,8 @@ func NewInputFieldFromSchema(name string, group Group, p jsonschemax.Path, opts 
 		attr.Type = InputAttributeTypeDateTimeLocal
 	case "email":
 		attr.Type = InputAttributeTypeEmail
+	case "phone":
+		attr.Type = InputAttributeTypePhone
 	case "date":
 		attr.Type = InputAttributeTypeDate
 	case "uri":

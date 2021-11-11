@@ -7,6 +7,7 @@ import (
 	"github.com/ory/kratos/identity"
 	"github.com/ory/kratos/selfservice/flow/verification"
 	"github.com/ory/kratos/selfservice/strategy/link"
+	"github.com/ory/kratos/selfservice/strategy/otp"
 )
 
 func (m *RegistryDefault) VerificationFlowPersister() verification.FlowPersister {
@@ -45,6 +46,14 @@ func (m *RegistryDefault) LinkSender() *link.Sender {
 	return m.selfserviceLinkSender
 }
 
+func (m *RegistryDefault) OTPSender() *otp.Sender {
+	if m.selfserviceOTPSender == nil {
+		m.selfserviceOTPSender = otp.NewSender(m)
+	}
+
+	return m.selfserviceOTPSender
+}
+
 func (m *RegistryDefault) VerificationStrategies(ctx context.Context) (verificationStrategies verification.Strategies) {
 	for _, strategy := range m.selfServiceStrategies() {
 		if s, ok := strategy.(verification.Strategy); ok {
@@ -74,7 +83,6 @@ func (m *RegistryDefault) VerificationExecutor() *verification.HookExecutor {
 }
 
 func (m *RegistryDefault) PostVerificationHooks(ctx context.Context) (b []verification.PostHookExecutor) {
-
 	for _, v := range m.getHooks(config.HookGlobal, m.Config(ctx).SelfServiceFlowVerificationAfterHooks(config.HookGlobal)) {
 		if hook, ok := v.(verification.PostHookExecutor); ok {
 			b = append(b, hook)

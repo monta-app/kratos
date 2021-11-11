@@ -11,6 +11,7 @@ import (
 
 const (
 	RecoveryAddressTypeEmail RecoveryAddressType = AddressTypeEmail
+	RecoveryAddressTypePhone RecoveryAddressType = AddressTypePhone
 )
 
 type (
@@ -45,6 +46,8 @@ func (v RecoveryAddressType) HTMLFormInputType() string {
 	switch v {
 	case RecoveryAddressTypeEmail:
 		return "email"
+	case RecoveryAddressTypePhone:
+		return "phone"
 	}
 	return ""
 }
@@ -57,13 +60,18 @@ func (a RecoveryAddress) ValidateNID() error {
 	return nil
 }
 
-func NewRecoveryEmailAddress(
-	value string,
-	identity uuid.UUID,
-) *RecoveryAddress {
+func NewRecoveryEmailAddress(value string, identity uuid.UUID) *RecoveryAddress {
 	return &RecoveryAddress{
 		Value:      value,
 		Via:        RecoveryAddressTypeEmail,
+		IdentityID: identity,
+	}
+}
+
+func NewRecoveryPhoneAddress(value string, identity uuid.UUID) *RecoveryAddress {
+	return &RecoveryAddress{
+		Value:      value,
+		Via:        RecoveryAddressTypePhone,
 		IdentityID: identity,
 	}
 }

@@ -34,6 +34,8 @@ const (
 	ProfileGroup          Group = "profile"
 	RecoveryLinkGroup     Group = "link"
 	VerificationLinkGroup Group = "link"
+	RecoveryOTPGroup      Group = "otp"
+	VerificationOTPGroup  Group = "otp"
 	TOTPGroup             Group = "totp"
 	LookupGroup           Group = "lookup_secret"
 	WebAuthnGroup         Group = "webauthn"

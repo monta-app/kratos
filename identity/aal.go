@@ -9,6 +9,8 @@ func DetermineAAL(cts []CredentialsType) AuthenticatorAssuranceLevel {
 		switch a {
 		case CredentialsTypeRecoveryLink:
 			fallthrough
+		case CredentialsTypeRecoveryOTP:
+			fallthrough
 		case CredentialsTypeOIDC:
 			fallthrough
 		case "v0.6_legacy_session":

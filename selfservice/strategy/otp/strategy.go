@@ -1,4 +1,4 @@
-package link
+package otp
 
 import (
 	"github.com/ory/kratos/courier"
@@ -81,9 +81,9 @@ func NewStrategy(d strategyDependencies) *Strategy {
 }
 
 func (s *Strategy) RecoveryNodeGroup() node.Group {
-	return node.RecoveryLinkGroup
+	return node.RecoveryOTPGroup
 }
 
 func (s *Strategy) VerificationNodeGroup() node.Group {
-	return node.VerificationLinkGroup
+	return node.VerificationOTPGroup
 }

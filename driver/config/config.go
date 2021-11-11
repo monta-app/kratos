@@ -661,6 +661,8 @@ func (p *Config) SelfServiceStrategy(strategy string) *SelfServiceStrategy {
 		case "profile":
 			fallthrough
 		case "link":
+			fallthrough
+		case "otp":
 			s.Enabled = true
 		}
 	}

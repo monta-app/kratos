@@ -3,6 +3,8 @@ package driver
 import (
 	"context"
 
+	"github.com/ory/kratos/selfservice/token"
+
 	prometheus "github.com/ory/x/prometheusx"
 	"github.com/ory/x/tracing"
 
@@ -125,8 +127,8 @@ type Registry interface {
 	verification.StrategyProvider
 
 	link.SenderProvider
-	link.VerificationTokenPersistenceProvider
-	link.RecoveryTokenPersistenceProvider
+	token.VerificationTokenPersistenceProvider
+	token.RecoveryTokenPersistenceProvider
 
 	recovery.FlowPersistenceProvider
 	recovery.ErrorHandlerProvider

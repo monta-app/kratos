@@ -3,13 +3,8 @@ package persistence
 import (
 	"context"
 
-	"github.com/ory/x/networkx"
-
-	"github.com/gofrs/uuid"
-
 	"github.com/gobuffalo/pop/v6"
-
-	"github.com/ory/x/popx"
+	"github.com/gofrs/uuid"
 
 	"github.com/ory/kratos/continuity"
 	"github.com/ory/kratos/courier"
@@ -20,8 +15,10 @@ import (
 	"github.com/ory/kratos/selfservice/flow/registration"
 	"github.com/ory/kratos/selfservice/flow/settings"
 	"github.com/ory/kratos/selfservice/flow/verification"
-	"github.com/ory/kratos/selfservice/strategy/link"
+	"github.com/ory/kratos/selfservice/token"
 	"github.com/ory/kratos/session"
+	"github.com/ory/x/networkx"
+	"github.com/ory/x/popx"
 )
 
 type Provider interface {
@@ -40,8 +37,8 @@ type Persister interface {
 	errorx.Persister
 	verification.FlowPersister
 	recovery.FlowPersister
-	link.RecoveryTokenPersister
-	link.VerificationTokenPersister
+	token.RecoveryTokenPersister
+	token.VerificationTokenPersister
 
 	Close(context.Context) error
 	Ping() error

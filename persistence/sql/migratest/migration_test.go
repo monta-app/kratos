@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/ory/kratos/selfservice/token"
+
 	"github.com/bradleyjkemp/cupaloy/v2"
 	"github.com/stretchr/testify/assert"
 
@@ -30,7 +32,6 @@ import (
 	"github.com/ory/kratos/selfservice/flow/registration"
 	"github.com/ory/kratos/selfservice/flow/settings"
 	"github.com/ory/kratos/selfservice/flow/verification"
-	"github.com/ory/kratos/selfservice/strategy/link"
 	"github.com/ory/kratos/session"
 	"github.com/ory/kratos/x"
 	"github.com/ory/x/configx"
@@ -156,7 +157,7 @@ func TestMigrations(t *testing.T) {
 				})
 
 				t.Run("case=verification_token", func(t *testing.T) {
-					var ids []link.VerificationToken
+					var ids []token.VerificationToken
 
 					require.NoError(t, c.All(&ids))
 					require.NotEmpty(t, ids)
@@ -258,7 +259,7 @@ func TestMigrations(t *testing.T) {
 				})
 
 				t.Run("case=recovery_token", func(t *testing.T) {
-					var ids []link.RecoveryToken
+					var ids []token.RecoveryToken
 					require.NoError(t, c.All(&ids))
 					require.NotEmpty(t, ids)
 
