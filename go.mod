@@ -13,7 +13,7 @@ replace (
 	// Use the internal httpclient which can be generated in this codebase but mark it as the
 	// official SDK, allowing for the Ory CLI to consume Ory Kratos' CLI commands.
 	github.com/ory/kratos-client-go => ./internal/httpclient
-	github.com/ory/x => github.com/monta-app/x v0.0.298-0.20211122134457-0e5858bb423a
+	github.com/ory/x => github.com/monta-app/x v0.0.298-0.20211123115150-4c2e773260c4
 	go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.4.6
 	golang.org/x/sys => golang.org/x/sys v0.0.0-20211007075335-d3039528d8ac
 	gopkg.in/DataDog/dd-trace-go.v1 => gopkg.in/DataDog/dd-trace-go.v1 v1.27.1-0.20201005154917-54b73b3e126a
@@ -21,7 +21,7 @@ replace (
 
 require (
 	github.com/Masterminds/semver v1.5.0 // indirect
-	github.com/Masterminds/sprig/v3 v3.0.0
+	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/arbovm/levenshtein v0.0.0-20160628152529-48b4e1c0c4d0
 	github.com/avast/retry-go/v3 v3.1.1
 	github.com/bradleyjkemp/cupaloy/v2 v2.6.0
