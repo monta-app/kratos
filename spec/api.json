@@ -1009,7 +1009,8 @@
               "password",
               "totp",
               "oidc",
-              "webauthn"
+              "webauthn",
+              "lookup_secret"
             ],
             "title": "The method used",
             "type": "string"

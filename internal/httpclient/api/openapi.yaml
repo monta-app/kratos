@@ -4005,6 +4005,7 @@ components:
           - totp
           - oidc
           - webauthn
+          - lookup_secret
           title: The method used
           type: string
       title: AuthenticationMethod identifies an authentication method
