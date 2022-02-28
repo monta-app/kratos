@@ -115,6 +115,8 @@ func init() {
 		"NewErrorValidationRecoveryRetrySuccess":                  text.NewErrorValidationRecoveryRetrySuccess(),
 		"NewErrorValidationRecoveryStateFailure":                  text.NewErrorValidationRecoveryStateFailure(),
 		"NewInfoNodeInputEmail":                                   text.NewInfoNodeInputEmail(),
+		"NewRecoveryPhoneSent":                                    text.NewRecoveryPhoneSent(),
+		"NewVerificationOTPSent":                                  text.NewVerificationOTPSent(),
 	}
 }
 

@@ -573,12 +573,14 @@ func TestDriverDefault_Strategies(t *testing.T) {
 			{
 				prep: func(conf *config.Config) {
 					conf.MustSet(config.ViperKeySelfServiceStrategyConfig+".link.enabled", false)
+					conf.MustSet(config.ViperKeySelfServiceStrategyConfig+".otp.enabled", false)
 				},
 			},
 			{
 				prep: func(conf *config.Config) {
 					conf.MustSet(config.ViperKeySelfServiceStrategyConfig+".link.enabled", true)
-				}, expect: []string{"link"},
+					conf.MustSet(config.ViperKeySelfServiceStrategyConfig+".otp.enabled", true)
+				}, expect: []string{"link", "otp"},
 			},
 		} {
 			t.Run(fmt.Sprintf("run=%d", k), func(t *testing.T) {
@@ -587,8 +589,8 @@ func TestDriverDefault_Strategies(t *testing.T) {
 
 				s := reg.RecoveryStrategies(context.Background())
 				require.Len(t, s, len(tc.expect))
-				for k, e := range tc.expect {
-					assert.Equal(t, e, s[k].RecoveryStrategyID())
+				for _, e := range tc.expect {
+					assert.True(t, containsRecovery(s, e))
 				}
 			})
 		}
@@ -713,11 +715,20 @@ func TestDefaultRegistry_AllStrategies(t *testing.T) {
 	})
 
 	t.Run("case=all recovery strategies", func(t *testing.T) {
-		expects := []string{"link"}
+		expects := []string{"link", "otp"}
 		s := reg.AllRecoveryStrategies()
 		require.Len(t, s, len(expects))
-		for k, e := range expects {
-			assert.Equal(t, e, s[k].RecoveryStrategyID())
+		for _, e := range expects {
+			assert.True(t, containsRecovery(s, e))
 		}
 	})
+}
+
+func containsRecovery(strategies recovery.Strategies, id string) bool {
+	for _, s := range strategies {
+		if s.RecoveryStrategyID() == id {
+			return true
+		}
+	}
+	return false
 }

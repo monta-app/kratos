@@ -50,14 +50,14 @@ func init() {
 }
 
 // nolint:staticcheck
-func TestMain(m *testing.M) {
-	atexit := dockertest.NewOnExit()
-	atexit.Add(func() {
-		// _ = os.Remove(strings.TrimPrefix(sqlite, "sqlite://"))
-		dockertest.KillAllTestDatabases()
-	})
-	atexit.Exit(m.Run())
-}
+//func TestMain(m *testing.M) {
+//	atexit := dockertest.NewOnExit()
+//	atexit.Add(func() {
+//		// _ = os.Remove(strings.TrimPrefix(sqlite, "sqlite://"))
+//		dockertest.KillAllTestDatabases()
+//	})
+//	atexit.Exit(m.Run())
+//}
 
 func pl(t *testing.T) func(lvl logging.Level, s string, args ...interface{}) {
 	return func(lvl logging.Level, s string, args ...interface{}) {

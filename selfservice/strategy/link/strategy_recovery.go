@@ -238,7 +238,7 @@ func (s *Strategy) Recover(w http.ResponseWriter, r *http.Request, f *recovery.F
 	switch req.State {
 	case recovery.StateChooseMethod:
 		fallthrough
-	case recovery.StateEmailSent:
+	case recovery.StateSent:
 		return s.recoveryHandleFormSubmission(w, r, req)
 	case recovery.StatePassedChallenge:
 		// was already handled, do not allow retry
@@ -430,7 +430,7 @@ func (s *Strategy) recoveryHandleFormSubmission(w http.ResponseWriter, r *http.R
 
 	f.Active = sqlxx.NullString(s.RecoveryNodeGroup())
 
-	f.State = recovery.StateEmailSent
+	f.State = recovery.StateSent
 	f.UI.Messages.Set(text.NewRecoveryEmailSent())
 	if err := s.d.RecoveryFlowPersister().UpdateRecoveryFlow(r.Context(), f); err != nil {
 		return s.HandleRecoveryError(w, r, f, body, err)

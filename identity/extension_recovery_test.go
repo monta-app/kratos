@@ -2,13 +2,13 @@ package identity
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/ory/jsonschema/v3"
 	_ "github.com/ory/jsonschema/v3/fileloader"
+	"github.com/pkg/errors"
 
 	"github.com/ory/kratos/schema"
 	"github.com/ory/kratos/x"
@@ -138,66 +138,78 @@ func TestSchemaExtensionRecovery(t *testing.T) {
 			},
 		},
 		{
-			doc:    `{"username":"+3807712576348"}`,
+			doc:    `{"username":"+380712576348"}`,
 			schema: "file://./stub/extension/recovery/phone.schema.json",
 			expect: []RecoveryAddress{
 				{
-					Value:      "+3807712576348",
+					Value:      "+380712576348",
 					Via:        RecoveryAddressTypePhone,
 					IdentityID: iid,
 				},
 			},
 		},
 		{
-			doc:    `{"username":"+3807712576348"}`,
+			doc:    `{"username":"+380712576348"}`,
 			schema: "file://./stub/extension/recovery/phone.schema.json",
 			expect: []RecoveryAddress{
 				{
-					Value:      "+3807712576348",
+					Value:      "+380712576348",
 					Via:        RecoveryAddressTypePhone,
 					IdentityID: iid,
 				},
 			},
 			existing: []RecoveryAddress{
 				{
-					Value:      "+3807712576348",
+					Value:      "+380712576348",
 					Via:        RecoveryAddressTypePhone,
 					IdentityID: iid,
 				},
 			},
 		},
 		{
-			doc:    `{"phone":["+3807712576348","+3807712576390"]}`,
+			doc:    `{"phone":["+380712576348","+380712576390"]}`,
 			schema: "file://./stub/extension/recovery/phone.schema.json",
 			expect: []RecoveryAddress{
 				{
-					Value:      "+3807712576348",
+					Value:      "+380712576348",
 					Via:        RecoveryAddressTypePhone,
 					IdentityID: iid,
 				},
 				{
-					Value:      "+3807712576390",
+					Value:      "+380712576390",
 					Via:        RecoveryAddressTypePhone,
 					IdentityID: iid,
 				},
 			},
 			existing: []RecoveryAddress{
 				{
-					Value:      "+3807712576348",
+					Value:      "+380712576348",
 					Via:        RecoveryAddressTypePhone,
 					IdentityID: iid,
 				},
 				{
-					Value:      "+3807712576390",
+					Value:      "+380712576390",
 					Via:        RecoveryAddressTypePhone,
 					IdentityID: iid,
 				},
 			},
 		},
 		{
-			doc:    `{"phone":["+3807712576348","+3807712576349"]}`,
+			doc:    `{"phone":["+380712576348","+380712576349"]}`,
 			schema: "file://./stub/extension/recovery/phone.schema.json",
 			expect: []RecoveryAddress{
+				{
+					Value:      "+380712576348",
+					Via:        RecoveryAddressTypePhone,
+					IdentityID: iid,
+				},
+				{
+					Value:      "+380712576349",
+					Via:        RecoveryAddressTypePhone,
+					IdentityID: iid,
+				},
+			},
+			existing: []RecoveryAddress{
 				{
 					Value:      "+3807712576348",
 					Via:        RecoveryAddressTypePhone,
@@ -209,40 +221,28 @@ func TestSchemaExtensionRecovery(t *testing.T) {
 					IdentityID: iid,
 				},
 			},
-			existing: []RecoveryAddress{
-				{
-					Value:      "+3807712576348",
-					Via:        RecoveryAddressTypePhone,
-					IdentityID: iid,
-				},
-				{
-					Value:      "+3807712576349",
-					Via:        RecoveryAddressTypePhone,
-					IdentityID: iid,
-				},
-			},
 		},
 		{
-			doc:       `{"phone":["+38077125763","+380771257636"], "username": "foobar"}`,
+			doc:       `{"phone":["+380712576333","+380712576366"], "username": "foobar"}`,
 			schema:    "file://./stub/extension/recovery/phone.schema.json",
 			expectErr: errors.New("I[#/username] S[#/properties/username/format] \"foobar\" is not valid \"phone\""),
 		},
 		{
-			doc:    `{"phone":["+3807712576348","+3807712576349","+3807712576370"], "username": "foobar"}`,
+			doc:    `{"phone":["+380712576348","+380712576349","+380712576370"], "username": "foobar"}`,
 			schema: "file://./stub/extension/recovery/phone.schema.json",
 			expect: []RecoveryAddress{
 				{
-					Value:      "+3807712576348",
+					Value:      "+380712576348",
 					Via:        RecoveryAddressTypePhone,
 					IdentityID: iid,
 				},
 				{
-					Value:      "+3807712576349",
+					Value:      "+380712576349",
 					Via:        RecoveryAddressTypePhone,
 					IdentityID: iid,
 				},
 				{
-					Value:      "+3807712576370",
+					Value:      "+380712576370",
 					Via:        RecoveryAddressTypePhone,
 					IdentityID: iid,
 				},
@@ -260,7 +260,7 @@ func TestSchemaExtensionRecovery(t *testing.T) {
 
 			err = c.MustCompile(ctx, tc.schema).Validate(bytes.NewBufferString(tc.doc))
 			if tc.expectErr != nil {
-				require.EqualError(t, err, tc.expectErr.Error())
+				require.EqualError(t, errors.Cause(err), tc.expectErr.Error())
 				return
 			}
 

@@ -55,11 +55,13 @@ func (s *Strategy) Recover(w http.ResponseWriter, r *http.Request, _ *recovery.F
 	}
 
 	if len(body.Token) > 0 {
-		if err := flow.MethodEnabledAndAllowed(r.Context(), s.RecoveryStrategyID(), s.RecoveryStrategyID(), s.d); err != nil {
-			return s.HandleRecoveryError(w, r, nil, body, err)
-		}
+		return errors.WithStack(flow.ErrStrategyNotResponsible)
 
-		return s.recoveryUseToken(w, r, body)
+		//if err := flow.MethodEnabledAndAllowed(r.Context(), s.RecoveryStrategyID(), s.RecoveryStrategyID(), s.d); err != nil {
+		//	return s.HandleRecoveryError(w, r, nil, body, err)
+		//}
+		//
+		//return s.recoveryUseToken(w, r, body)
 	}
 
 	if err := flow.MethodEnabledAndAllowed(r.Context(), s.RecoveryStrategyID(), body.Method, s.d); err != nil {
@@ -78,7 +80,7 @@ func (s *Strategy) Recover(w http.ResponseWriter, r *http.Request, _ *recovery.F
 	switch req.State {
 	case recovery.StateChooseMethod:
 		fallthrough
-	case recovery.StateSmsSent:
+	case recovery.StateSent:
 		return s.recoveryHandleFormSubmission(w, r, req)
 	case recovery.StatePassedChallenge:
 		// was already handled, do not allow retry
@@ -269,7 +271,7 @@ func (s *Strategy) recoveryHandleFormSubmission(w http.ResponseWriter, r *http.R
 
 	f.Active = sqlxx.NullString(s.RecoveryNodeGroup())
 
-	f.State = recovery.StateSmsSent
+	f.State = recovery.StateSent
 	f.UI.Messages.Set(text.NewRecoveryPhoneSent())
 	if err := s.d.RecoveryFlowPersister().UpdateRecoveryFlow(r.Context(), f); err != nil {
 		return s.HandleRecoveryError(w, r, f, body, err)

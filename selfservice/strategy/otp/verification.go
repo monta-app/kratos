@@ -98,7 +98,7 @@ func (s *Strategy) Verify(w http.ResponseWriter, r *http.Request, f *verificatio
 	switch f.State {
 	case verification.StateChooseMethod:
 		fallthrough
-	case verification.StateSmsSent:
+	case verification.StateSent:
 		// Do nothing (continue with execution after this switch statement)
 		return s.verificationHandleFormSubmission(w, r, f)
 	case verification.StatePassedChallenge:
@@ -136,7 +136,7 @@ func (s *Strategy) verificationHandleFormSubmission(w http.ResponseWriter, r *ht
 	)
 
 	f.Active = sqlxx.NullString(s.VerificationNodeGroup())
-	f.State = verification.StateSmsSent
+	f.State = verification.StateSent
 	f.UI.Messages.Set(text.NewVerificationOTPSent())
 	if err := s.d.VerificationFlowPersister().UpdateVerificationFlow(r.Context(), f); err != nil {
 		return s.handleVerificationError(w, r, f, body, err)
