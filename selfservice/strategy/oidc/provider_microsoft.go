@@ -10,7 +10,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/golang-jwt/jwt/v4"
 
-	gooidc "github.com/coreos/go-oidc"
+	gooidc "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 
@@ -25,6 +25,8 @@ func NewProviderMicrosoft(
 	config *Configuration,
 	reg dependencies,
 ) *ProviderMicrosoft {
+	config.IssuerURL = microsoftRootUrl + config.Tenant + "/v2.0"
+
 	return &ProviderMicrosoft{
 		ProviderGenericOIDC: &ProviderGenericOIDC{
 			config: config,
@@ -33,12 +35,14 @@ func NewProviderMicrosoft(
 	}
 }
 
+const microsoftRootUrl = "https://login.microsoftonline.com/"
+
 func (m *ProviderMicrosoft) OAuth2(ctx context.Context) (*oauth2.Config, error) {
 	if len(strings.TrimSpace(m.config.Tenant)) == 0 {
 		return nil, errors.WithStack(herodot.ErrInternalServerError.WithReasonf("No Tenant specified for the `microsoft` oidc provider %s", m.config.ID))
 	}
 
-	endpointPrefix := "https://login.microsoftonline.com/" + m.config.Tenant
+	endpointPrefix := microsoftRootUrl + m.config.Tenant
 	endpoint := oauth2.Endpoint{
 		AuthURL:  endpointPrefix + "/oauth2/v2.0/authorize",
 		TokenURL: endpointPrefix + "/oauth2/v2.0/token",
@@ -53,9 +57,13 @@ func (m *ProviderMicrosoft) Claims(ctx context.Context, exchange *oauth2.Token) 
 		return nil, errors.WithStack(ErrIDTokenMissing)
 	}
 
+	return m.ClaimsFromIdToken(ctx, raw)
+}
+
+func (m *ProviderMicrosoft) ClaimsFromIdToken(ctx context.Context, rawIdToken string) (*Claims, error) {
 	parser := new(jwt.Parser)
 	unverifiedClaims := microsoftUnverifiedClaims{}
-	if _, _, err := parser.ParseUnverified(raw, &unverifiedClaims); err != nil {
+	if _, _, err := parser.ParseUnverified(rawIdToken, &unverifiedClaims); err != nil {
 		return nil, err
 	}
 
@@ -63,18 +71,22 @@ func (m *ProviderMicrosoft) Claims(ctx context.Context, exchange *oauth2.Token) 
 		return nil, errors.WithStack(herodot.ErrBadRequest.WithReasonf("TenantID claim is not a valid UUID: %s", err))
 	}
 
-	issuer := "https://login.microsoftonline.com/" + unverifiedClaims.TenantID + "/v2.0"
+	issuer := microsoftRootUrl + unverifiedClaims.TenantID + "/v2.0"
 	p, err := gooidc.NewProvider(ctx, issuer)
 	if err != nil {
 		return nil, errors.WithStack(herodot.ErrInternalServerError.WithReasonf("Unable to initialize OpenID Connect Provider: %s", err))
 	}
 
-	claims, err := m.verifyAndDecodeClaimsWithProvider(ctx, p, raw)
+	return m.verifyAndDecodeClaimsWithProvider(ctx, p, rawIdToken)
+}
+
+func (m *ProviderMicrosoft) ClaimsFromAccessToken(ctx context.Context, accessToken string) (*Claims, error) {
+	claims, err := m.ProviderGenericOIDC.ClaimsFromAccessToken(gooidc.InsecureIssuerURLContext(ctx, m.config.IssuerURL), accessToken)
 	if err != nil {
 		return nil, err
 	}
 
-	return m.updateSubject(ctx, claims, exchange)
+	return m.updateSubject(ctx, claims, &oauth2.Token{AccessToken: accessToken})
 }
 
 func (m *ProviderMicrosoft) updateSubject(ctx context.Context, claims *Claims, exchange *oauth2.Token) (*Claims, error) {
