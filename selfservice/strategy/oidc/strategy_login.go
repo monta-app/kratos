@@ -76,6 +76,10 @@ type SubmitSelfServiceLoginFlowWithOidcMethodBody struct {
 	//
 	// required: false
 	IdToken string `json:"id_token"`
+	// Only used in API-type flows, when an access token has been received by mobile app directly from oidc provider.
+	//
+	// required: false
+	AccessToken string `json:"access_token"`
 }
 
 func (s *Strategy) processLogin(w http.ResponseWriter, r *http.Request, a *login.Flow, token *oauth2.Token, claims *Claims, provider Provider, container *authCodeContainer) (*registration.Flow, error) {
@@ -137,6 +141,7 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 
 	var pid = ""
 	var idToken = ""
+	var accessToken = ""
 
 	var p SubmitSelfServiceLoginFlowWithOidcMethodBody
 	if f.Type == flow.TypeBrowser {
@@ -157,6 +162,7 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 		}
 
 		idToken = p.IdToken
+		accessToken = p.AccessToken
 		pid = p.Provider
 	}
 
@@ -205,6 +211,11 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 		if apiFlowProvider, ok := provider.(APIFlowProvider); ok {
 			if len(idToken) > 0 {
 				claims, err = apiFlowProvider.ClaimsFromIdToken(r.Context(), idToken)
+				if err != nil {
+					return nil, errors.WithStack(err)
+				}
+			} else if len(accessToken) > 0 {
+				claims, err = apiFlowProvider.ClaimsFromAccessToken(r.Context(), accessToken)
 				if err != nil {
 					return nil, errors.WithStack(err)
 				}

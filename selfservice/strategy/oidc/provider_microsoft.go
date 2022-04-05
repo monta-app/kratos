@@ -119,6 +119,10 @@ func (m *ProviderMicrosoft) updateSubject(ctx context.Context, claims *Claims, e
 	return claims, nil
 }
 
+func (m *ProviderMicrosoft) ClaimsFromAccessToken(ctx context.Context, accessToken string) (*Claims, error) {
+	return m.ProviderGenericOIDC.ClaimsFromAccessToken(gooidc.InsecureIssuerURLContext(ctx, m.config.IssuerURL), accessToken)
+}
+
 type microsoftUnverifiedClaims struct {
 	TenantID string `json:"tid,omitempty"`
 }

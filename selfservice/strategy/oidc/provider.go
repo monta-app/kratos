@@ -17,6 +17,7 @@ type Provider interface {
 
 type APIFlowProvider interface {
 	ClaimsFromIdToken(ctx context.Context, rawIdToken string) (*Claims, error)
+	ClaimsFromAccessToken(ctx context.Context, accessToken string) (*Claims, error)
 }
 
 // ConvertibleBoolean is used as Apple casually sends the email_verified field as a string.

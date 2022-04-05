@@ -18,6 +18,10 @@
       "type": "string",
       "minLength": 1
     },
+    "access_token": {
+      "type": "string",
+      "minLength": 1
+    },
     "method": {
       "type": "string"
     }
