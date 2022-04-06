@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ory/kratos/driver/config"
+
 	"github.com/gofrs/uuid"
 
 	"github.com/ory/kratos/ui/node"
@@ -23,7 +25,6 @@ import (
 
 	"github.com/ory/herodot"
 
-	"github.com/ory/kratos/driver/config"
 	"github.com/ory/kratos/internal"
 	"github.com/ory/kratos/internal/testhelpers"
 	"github.com/ory/kratos/schema"
@@ -35,9 +36,11 @@ import (
 
 func TestHandleError(t *testing.T) {
 	conf, reg := internal.NewFastRegistryWithMocks(t)
-	conf.MustSet(config.ViperKeyDefaultIdentitySchemaURL, "file://./stub/login.schema.json")
 
-	_, admin := testhelpers.NewKratosServer(t, reg)
+	conf.MustSet(config.ViperKeySelfServiceRegistrationEnabled, true)
+	testhelpers.SetDefaultIdentitySchema(conf, "file://./stub/login.schema.json")
+
+	public, _ := testhelpers.NewKratosServer(t, reg)
 
 	router := httprouter.New()
 	ts := httptest.NewServer(router)
@@ -47,7 +50,7 @@ func TestHandleError(t *testing.T) {
 	testhelpers.NewErrorTestServer(t, reg)
 
 	h := reg.RegistrationFlowErrorHandler()
-	sdk := testhelpers.NewSDKClient(admin)
+	sdk := testhelpers.NewSDKClient(public)
 
 	var registrationFlow *registration.Flow
 	var flowError error

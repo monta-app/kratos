@@ -97,10 +97,14 @@ type ImageAttributes struct {
 	Identifier string `json:"id"`
 
 	// Width of the image
-	Width int `json:"width,omitempty"`
+	//
+	// required: true
+	Width int `json:"width"`
 
 	// Height of the image
-	Height int `json:"height,omitempty"`
+	//
+	// required: true
+	Height int `json:"height"`
 
 	// NodeType represents this node's types. It is a mirror of `node.type` and
 	// is primarily used to allow compatibility with OpenAPI 3.0.
@@ -196,6 +200,15 @@ type ScriptAttributes struct {
 	//
 	// required: true
 	Identifier string `json:"id"`
+
+	// Nonce for CSP
+	//
+	// A nonce you may want to use to improve your Content Security Policy.
+	// You do not have to use this value but if you want to improve your CSP
+	// policies you may use it. You can also choose to use your own nonce value!
+	//
+	// required: true
+	Nonce string `json:"nonce"`
 
 	// NodeType represents this node's types. It is a mirror of `node.type` and
 	// is primarily used to allow compatibility with OpenAPI 3.0.
