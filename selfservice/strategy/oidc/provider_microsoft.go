@@ -120,7 +120,12 @@ func (m *ProviderMicrosoft) updateSubject(ctx context.Context, claims *Claims, e
 }
 
 func (m *ProviderMicrosoft) ClaimsFromAccessToken(ctx context.Context, accessToken string) (*Claims, error) {
-	return m.ProviderGenericOIDC.ClaimsFromAccessToken(gooidc.InsecureIssuerURLContext(ctx, m.config.IssuerURL), accessToken)
+	claims, err := m.ProviderGenericOIDC.ClaimsFromAccessToken(gooidc.InsecureIssuerURLContext(ctx, m.config.IssuerURL), accessToken)
+	if err != nil {
+		return nil, err
+	}
+
+	return m.updateSubject(ctx, claims, &oauth2.Token{AccessToken: accessToken})
 }
 
 type microsoftUnverifiedClaims struct {
