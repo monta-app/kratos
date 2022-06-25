@@ -117,7 +117,7 @@ func (s *Strategy) Verify(w http.ResponseWriter, r *http.Request, f *verificatio
 			return s.handleVerificationError(w, r, nil, body, err)
 		}
 
-		return s.verificationUseToken(w, r, body)
+		return s.verificationUseToken(w, r, body, f)
 	}
 
 	if err := flow.MethodEnabledAndAllowed(r.Context(), s.VerificationStrategyID(), body.Method, s.d); err != nil {
@@ -187,10 +187,13 @@ type selfServiceBrowserVerifyParameters struct {
 	Token string `json:"token"`
 }
 
-func (s *Strategy) verificationUseToken(w http.ResponseWriter, r *http.Request, body *verificationSubmitPayload) error {
+func (s *Strategy) verificationUseToken(w http.ResponseWriter, r *http.Request, body *verificationSubmitPayload, currentFlow *verification.Flow) error {
 	token, err := s.d.VerificationTokenPersister().UseVerificationToken(r.Context(), body.Token)
 	if err != nil {
 		if errors.Is(err, sqlcon.ErrNoRows) {
+			if x.IsJSONRequest(r) {
+				return s.handleVerificationError(w, r, currentFlow, body, NewValidationVerificationTokenInvalidOrAlreadyUsedError())
+			}
 			return s.retryVerificationFlowWithMessage(w, r, flow.TypeBrowser, text.NewErrorValidationVerificationTokenInvalidOrAlreadyUsed())
 		}
 
@@ -245,6 +248,10 @@ func (s *Strategy) verificationUseToken(w http.ResponseWriter, r *http.Request, 
 		return s.retryVerificationFlowWithError(w, r, flow.TypeBrowser, err)
 	}
 
+	if x.AcceptsJSON(r) {
+		return nil
+	}
+
 	defaultRedirectURL := s.d.Config().SelfServiceFlowVerificationReturnTo(r.Context(), f.AppendTo(s.d.Config().SelfServiceFlowVerificationUI(r.Context())))
 
 	verificationRequestURL, err := urlx.Parse(f.GetRequestURL())
@@ -283,7 +290,7 @@ func (s *Strategy) retryVerificationFlowWithMessage(w http.ResponseWriter, r *ht
 		return s.handleVerificationError(w, r, f, nil, err)
 	}
 
-	if ft == flow.TypeBrowser {
+	if !x.AcceptsJSON(r) {
 		http.Redirect(w, r, f.AppendTo(s.d.Config().SelfServiceFlowVerificationUI(r.Context())).String(), http.StatusSeeOther)
 	} else {
 		http.Redirect(w, r, urlx.CopyWithQuery(urlx.AppendPaths(s.d.Config().SelfPublicURL(r.Context()),
