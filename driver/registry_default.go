@@ -3,6 +3,7 @@ package driver
 import (
 	"context"
 	"crypto/sha256"
+	"github.com/ory/kratos/selfservice/strategy/pin"
 	"net/http"
 	"strings"
 	"sync"
@@ -289,6 +290,7 @@ func (m *RegistryDefault) selfServiceStrategies() []interface{} {
 			totp.NewStrategy(m),
 			webauthn.NewStrategy(m),
 			lookup.NewStrategy(m),
+			pin.NewStrategy(m),
 		}
 	}
 

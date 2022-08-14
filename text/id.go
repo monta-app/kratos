@@ -20,6 +20,7 @@ const (
 	InfoSelfServiceLoginContinueWebAuthn                         // 1010011
 	InfoSelfServiceLoginWebAuthnPasswordless                     // 1010012
 	InfoSelfServiceLoginContinue                                 // 1010013
+	InfoSelfServiceLoginPinLabel                                 // 1010014
 )
 
 const (
@@ -75,6 +76,7 @@ const (
 	InfoNodeLabelSubmit                            // 1070005
 	InfoNodeLabelVerifyOTP                         // 1070006
 	InfoNodeLabelEmail                             // 1070007
+	InfoNodeLabelInputPin                          // 1070008
 )
 
 const (
@@ -101,6 +103,7 @@ const (
 	ErrorValidationNoLookup
 	ErrorValidationSuchNoWebAuthnUser
 	ErrorValidationLookupInvalid
+	ErrorValidationInvalidPin
 )
 
 const (

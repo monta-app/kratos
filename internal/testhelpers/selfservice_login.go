@@ -3,6 +3,7 @@ package testhelpers
 import (
 	"bytes"
 	"context"
+	"github.com/ory/x/ioutilx"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -23,7 +24,6 @@ import (
 	"github.com/ory/kratos/driver/config"
 	"github.com/ory/kratos/selfservice/flow/login"
 	"github.com/ory/kratos/x"
-	"github.com/ory/x/ioutilx"
 )
 
 func NewLoginUIFlowEchoServer(t *testing.T, reg driver.Registry) *httptest.Server {
@@ -182,6 +182,7 @@ func SubmitLoginForm(
 	forced bool,
 	expectedStatusCode int,
 	expectedURL string,
+	opts ...InitFlowWithOption,
 ) string {
 	if hc == nil {
 		hc = new(http.Client)
@@ -193,9 +194,9 @@ func SubmitLoginForm(
 	hc.Transport = NewTransportWithLogger(hc.Transport, t)
 	var f *kratos.SelfServiceLoginFlow
 	if isAPI {
-		f = InitializeLoginFlowViaAPI(t, hc, publicTS, forced)
+		f = InitializeLoginFlowViaAPI(t, hc, publicTS, forced, opts...)
 	} else {
-		f = InitializeLoginFlowViaBrowser(t, hc, publicTS, forced, isSPA)
+		f = InitializeLoginFlowViaBrowser(t, hc, publicTS, forced, isSPA, opts...)
 	}
 
 	time.Sleep(time.Millisecond) // add a bit of delay to allow `1ns` to time out.
