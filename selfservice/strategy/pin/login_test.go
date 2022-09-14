@@ -29,9 +29,11 @@ var loginSchema []byte
 
 func TestCompleteLogin(t *testing.T) {
 	conf, reg := internal.NewFastRegistryWithMocks(t)
-	conf.MustSet(config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypePin),
+	ctx := context.Background()
+
+	conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypePin),
 		map[string]interface{}{"enabled": true})
-	conf.MustSet(config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypePassword),
+	conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypePassword),
 		map[string]interface{}{"enabled": true})
 	router := x.NewRouterPublic()
 	publicTS, _ := testhelpers.NewKratosServerWithRouters(t, reg, router, x.NewRouterAdmin())
@@ -41,19 +43,19 @@ func TestCompleteLogin(t *testing.T) {
 	redirTS := testhelpers.NewRedirSessionEchoTS(t, reg)
 
 	// Overwrite these two:
-	conf.MustSet(config.ViperKeySelfServiceErrorUI, errTS.URL+"/error-ts")
-	conf.MustSet(config.ViperKeySelfServiceLoginUI, uiTS.URL+"/login-ts")
+	conf.MustSet(ctx, config.ViperKeySelfServiceErrorUI, errTS.URL+"/error-ts")
+	conf.MustSet(ctx, config.ViperKeySelfServiceLoginUI, uiTS.URL+"/login-ts")
 
 	testhelpers.SetDefaultIdentitySchemaFromRaw(conf, loginSchema)
-	conf.MustSet(config.ViperKeySecretsDefault, []string{"not-a-secure-session-key"})
+	conf.MustSet(ctx, config.ViperKeySecretsDefault, []string{"not-a-secure-session-key"})
 
 	ensureFieldsExist := func(t *testing.T, body []byte) {
 		registrationhelpers.CheckFormContent(t, body, "pin", "csrf_token")
 	}
 
 	createIdentity := func(identifier, password string, pin string) *identity.Identity {
-		hashedPassword, _ := reg.Hasher().Generate(context.Background(), []byte(password))
-		hashedPin, _ := reg.Hasher().Generate(context.Background(), []byte(pin))
+		hashedPassword, _ := reg.Hasher(ctx).Generate(ctx, []byte(password))
+		hashedPin, _ := reg.Hasher(ctx).Generate(ctx, []byte(pin))
 		iId := x.NewUUID()
 		i := &identity.Identity{
 			ID:     iId,
@@ -80,7 +82,7 @@ func TestCompleteLogin(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, reg.PrivilegedIdentityPool().CreateIdentity(context.Background(), i))
+		require.NoError(t, reg.PrivilegedIdentityPool().CreateIdentity(ctx, i))
 		return i
 	}
 
@@ -89,14 +91,14 @@ func TestCompleteLogin(t *testing.T) {
 		return testhelpers.SubmitLoginForm(t, isAPI, hc, publicTS, values,
 			isSPA, false,
 			testhelpers.ExpectStatusCode(isAPI || isSPA, http.StatusBadRequest, http.StatusOK),
-			testhelpers.ExpectURL(isAPI || isSPA, publicTS.URL+login.RouteSubmitFlow, conf.SelfServiceFlowLoginUI().String()),
+			testhelpers.ExpectURL(isAPI || isSPA, publicTS.URL+login.RouteSubmitFlow, conf.SelfServiceFlowLoginUI(ctx).String()),
 			testhelpers.InitFlowWithAAL(identity.NoAuthenticatorAssuranceLevel))
 	}
 	var expectUnauthorizedError = func(t *testing.T, isAPI, refresh, isSPA bool, values func(url.Values)) string {
 		return testhelpers.SubmitLoginForm(t, isAPI, nil, publicTS, values,
 			isSPA, refresh,
 			testhelpers.ExpectStatusCode(isAPI || isSPA, http.StatusUnauthorized, http.StatusOK),
-			testhelpers.ExpectURL(isAPI || isSPA, publicTS.URL+login.RouteSubmitFlow, conf.SelfServiceFlowErrorURL().String()))
+			testhelpers.ExpectURL(isAPI || isSPA, publicTS.URL+login.RouteSubmitFlow, conf.SelfServiceFlowErrorURL(ctx).String()))
 	}
 
 	t.Run("should return an error because no session", func(t *testing.T) {

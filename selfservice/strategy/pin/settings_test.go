@@ -1,6 +1,7 @@
 package pin_test
 
 import (
+	"context"
 	"github.com/ory/kratos/driver/config"
 	"github.com/ory/kratos/identity"
 	"github.com/ory/kratos/internal"
@@ -32,7 +33,8 @@ func newIdentityWithPassword(email string) *identity.Identity {
 
 func TestSettings(t *testing.T) {
 	conf, reg := internal.NewFastRegistryWithMocks(t)
-	conf.MustSet(config.ViperKeySelfServiceBrowserDefaultReturnTo, "https://www.ory.sh/")
+	ctx := context.Background()
+	conf.MustSet(ctx, config.ViperKeySelfServiceBrowserDefaultReturnTo, "https://www.ory.sh/")
 	testhelpers.SetDefaultIdentitySchema(conf, "file://./stub/profile.schema.json")
 	testhelpers.StrategyEnable(t, conf, identity.CredentialsTypePassword.String(), true)
 	testhelpers.StrategyEnable(t, conf, identity.CredentialsTypePin.String(), true)
@@ -41,7 +43,7 @@ func TestSettings(t *testing.T) {
 	_ = testhelpers.NewSettingsUIFlowEchoServer(t, reg)
 	_ = testhelpers.NewErrorTestServer(t, reg)
 	_ = testhelpers.NewLoginUIWith401Response(t, conf)
-	conf.MustSet(config.ViperKeySelfServiceSettingsPrivilegedAuthenticationAfter, "1m")
+	conf.MustSet(ctx, config.ViperKeySelfServiceSettingsPrivilegedAuthenticationAfter, "1m")
 
 	browserIdentity1 := newIdentityWithPassword("john-browser@doe.com")
 	apiIdentity1 := newIdentityWithPassword("john-api@doe.com")
@@ -74,7 +76,7 @@ func TestSettings(t *testing.T) {
 		})
 
 		t.Run("type=browser", func(t *testing.T) {
-			check(t, testhelpers.SubmitSettingsForm(t, false, false, browserUser1, publicTS, payload, http.StatusOK, conf.SelfServiceFlowSettingsUI().String()))
+			check(t, testhelpers.SubmitSettingsForm(t, false, false, browserUser1, publicTS, payload, http.StatusOK, conf.SelfServiceFlowSettingsUI(ctx).String()))
 		})
 	})
 }
