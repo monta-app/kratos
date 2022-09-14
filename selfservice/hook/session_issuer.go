@@ -53,7 +53,7 @@ func (e *SessionIssuer) ExecutePostRegistrationPostPersistHook(w http.ResponseWr
 		return errors.WithStack(registration.ErrHookAbortFlow)
 	}
 
-	isWebView, err := flow.IsWebViewFlow(e.r.Config(r.Context()), a)
+	isWebView, err := flow.IsWebViewFlow(r.Context(), e.r.Config(), a)
 	if err != nil {
 		return err
 	}

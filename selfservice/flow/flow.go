@@ -1,6 +1,7 @@
 package flow
 
 import (
+	"context"
 	"github.com/ory/kratos/driver/config"
 	"net/http"
 	"net/url"
@@ -37,7 +38,7 @@ type Flow interface {
 	GetUI() *container.Container
 }
 
-func IsWebViewFlow(conf *config.Config, f Flow) (bool, error) {
+func IsWebViewFlow(ctx context.Context, conf *config.Config, f Flow) (bool, error) {
 	if f.GetType() != TypeBrowser {
 		return false, nil
 	}
@@ -45,7 +46,7 @@ func IsWebViewFlow(conf *config.Config, f Flow) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	redirectURL := conf.SelfServiceWebViewRedirectURL()
+	redirectURL := conf.SelfServiceWebViewRedirectURL(ctx)
 	if redirectURL == nil {
 		return false, nil
 	}

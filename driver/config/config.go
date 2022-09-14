@@ -759,8 +759,8 @@ func (p *Config) SelfServiceBrowserDefaultReturnTo(ctx context.Context) *url.URL
 	return p.ParseAbsoluteOrRelativeURIOrFail(ctx, ViperKeySelfServiceBrowserDefaultReturnTo)
 }
 
-func (p *Config) SelfServiceWebViewRedirectURL() *url.URL {
-	return p.Source().URIF(ViperKeySelfServiceWebViewRedirectURL, nil)
+func (p *Config) SelfServiceWebViewRedirectURL(ctx context.Context) *url.URL {
+	return p.GetProvider(ctx).URIF(ViperKeySelfServiceWebViewRedirectURL, nil)
 }
 
 func (p *Config) guessBaseURL(ctx context.Context, keyHost, keyPort string, defaultPort int) *url.URL {

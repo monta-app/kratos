@@ -82,6 +82,8 @@ func (s *ErrorHandler) WriteFlowError(
 		return
 	}
 
+	ctx := r.Context()
+
 	if expired, inner := s.PrepareReplacementForExpiredFlow(w, r, f, err); inner != nil {
 		s.forward(w, r, f, err)
 		return
@@ -89,7 +91,7 @@ func (s *ErrorHandler) WriteFlowError(
 		if f.Type == flow.TypeAPI || x.IsJSONRequest(r) {
 			s.d.Writer().WriteError(w, r, expired)
 		} else {
-			http.Redirect(w, r, expired.GetFlow().AppendTo(s.d.Config().SelfServiceFlowRegistrationUI(r.Context())).String(), http.StatusSeeOther)
+			http.Redirect(w, r, expired.GetFlow().AppendTo(s.d.Config().SelfServiceFlowRegistrationUI(ctx)).String(), http.StatusSeeOther)
 		}
 		return
 	}
@@ -100,24 +102,24 @@ func (s *ErrorHandler) WriteFlowError(
 		return
 	}
 
-	ds, err := s.d.Config().DefaultIdentityTraitsSchemaURL(r.Context())
+	ds, err := s.d.Config().DefaultIdentityTraitsSchemaURL(ctx)
 	if err != nil {
 		s.forward(w, r, f, err)
 		return
 	}
 
-	if err := SortNodes(r.Context(), f.UI.Nodes, ds.String()); err != nil {
+	if err := SortNodes(ctx, f.UI.Nodes, ds.String()); err != nil {
 		s.forward(w, r, f, err)
 		return
 	}
 
-	if err := s.d.RegistrationFlowPersister().UpdateRegistrationFlow(r.Context(), f); err != nil {
+	if err := s.d.RegistrationFlowPersister().UpdateRegistrationFlow(ctx, f); err != nil {
 		s.forward(w, r, f, err)
 		return
 	}
 
 	if f.Type == flow.TypeBrowser && !x.IsJSONRequest(r) {
-		isWebView, innerErr := flow.IsWebViewFlow(s.d.Config(r.Context()), f)
+		isWebView, innerErr := flow.IsWebViewFlow(ctx, s.d.Config(), f)
 		if innerErr != nil {
 			s.forward(w, r, f, innerErr)
 			return
@@ -125,12 +127,12 @@ func (s *ErrorHandler) WriteFlowError(
 
 		var redirectLocation = ""
 		if isWebView {
-			c := s.d.Config(r.Context())
-			returnTo, innerErr := x.SecureRedirectTo(r, c.SelfServiceBrowserDefaultReturnTo(),
+			c := s.d.Config()
+			returnTo, innerErr := x.SecureRedirectTo(r, c.SelfServiceBrowserDefaultReturnTo(ctx),
 				x.SecureRedirectUseSourceURL(f.RequestURL),
-				x.SecureRedirectAllowURLs(c.SelfServiceBrowserAllowedReturnToDomains()),
-				x.SecureRedirectAllowSelfServiceURLs(c.SelfPublicURL()),
-				x.SecureRedirectOverrideDefaultReturnTo(s.d.Config(r.Context()).SelfServiceFlowLoginReturnTo(f.Active.String())),
+				x.SecureRedirectAllowURLs(c.SelfServiceBrowserAllowedReturnToDomains(ctx)),
+				x.SecureRedirectAllowSelfServiceURLs(c.SelfPublicURL(ctx)),
+				x.SecureRedirectOverrideDefaultReturnTo(s.d.Config().SelfServiceFlowLoginReturnTo(ctx, f.Active.String())),
 			)
 			if innerErr != nil {
 				s.forward(w, r, f, innerErr)
@@ -146,13 +148,13 @@ func (s *ErrorHandler) WriteFlowError(
 			redirectLocation = returnTo.String()
 
 		} else {
-			redirectLocation = f.AppendTo(s.d.Config().SelfServiceFlowRegistrationUI(r.Context())).String()
+			redirectLocation = f.AppendTo(s.d.Config().SelfServiceFlowRegistrationUI(ctx)).String()
 		}
 		http.Redirect(w, r, redirectLocation, http.StatusFound)
 		return
 	}
 
-	updatedFlow, innerErr := s.d.RegistrationFlowPersister().GetRegistrationFlow(r.Context(), f.ID)
+	updatedFlow, innerErr := s.d.RegistrationFlowPersister().GetRegistrationFlow(ctx, f.ID)
 	if innerErr != nil {
 		s.forward(w, r, updatedFlow, innerErr)
 	}

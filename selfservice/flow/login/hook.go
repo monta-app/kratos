@@ -201,7 +201,7 @@ func (e *HookExecutor) PostLoginHook(w http.ResponseWriter, r *http.Request, g n
 		return nil
 	}
 
-	isWebView, err := flow.IsWebViewFlow(e.d.Config(r.Context()), a)
+	isWebView, err := flow.IsWebViewFlow(r.Context(), e.d.Config(), a)
 	if err != nil {
 		return err
 	}
