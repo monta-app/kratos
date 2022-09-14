@@ -100,15 +100,16 @@ func (s *Strategy) continueSettingsFlow(
 	w http.ResponseWriter, r *http.Request,
 	ctxUpdate *settings.UpdateContext, p *submitSelfServiceSettingsFlowWithPinMethodBody,
 ) error {
-	if err := flow.MethodEnabledAndAllowed(r.Context(), s.SettingsStrategyID(), p.Method, s.d); err != nil {
+	ctx := r.Context()
+	if err := flow.MethodEnabledAndAllowed(ctx, s.SettingsStrategyID(), p.Method, s.d); err != nil {
 		return err
 	}
 
-	if err := flow.EnsureCSRF(s.d, r, ctxUpdate.Flow.Type, s.d.Config(r.Context()).DisableAPIFlowEnforcement(), s.d.GenerateCSRFToken, p.CSRFToken); err != nil {
+	if err := flow.EnsureCSRF(s.d, r, ctxUpdate.Flow.Type, s.d.Config().DisableAPIFlowEnforcement(ctx), s.d.GenerateCSRFToken, p.CSRFToken); err != nil {
 		return err
 	}
 
-	if ctxUpdate.Session.AuthenticatedAt.Add(s.d.Config(r.Context()).SelfServiceFlowSettingsPrivilegedSessionMaxAge()).Before(time.Now()) {
+	if ctxUpdate.Session.AuthenticatedAt.Add(s.d.Config().SelfServiceFlowSettingsPrivilegedSessionMaxAge(ctx)).Before(time.Now()) {
 		return errors.WithStack(settings.NewFlowNeedsReAuth())
 	}
 
@@ -116,7 +117,7 @@ func (s *Strategy) continueSettingsFlow(
 		return schema.NewRequiredError("#/password", "password")
 	}
 
-	hpin, err := s.d.Hasher().Generate(r.Context(), []byte(p.Pin))
+	hpin, err := s.d.Hasher(ctx).Generate(ctx, []byte(p.Pin))
 	if err != nil {
 		return err
 	}
@@ -126,7 +127,7 @@ func (s *Strategy) continueSettingsFlow(
 		return errors.WithStack(herodot.ErrInternalServerError.WithReasonf("Unable to encode pin options to JSON: %s", err))
 	}
 
-	i, err := s.d.PrivilegedIdentityPool().GetIdentityConfidential(r.Context(), ctxUpdate.Session.Identity.ID)
+	i, err := s.d.PrivilegedIdentityPool().GetIdentityConfidential(ctx, ctxUpdate.Session.Identity.ID)
 	if err != nil {
 		return err
 	}

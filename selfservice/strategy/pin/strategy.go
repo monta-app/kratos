@@ -48,6 +48,6 @@ func (s *Strategy) ID() identity.CredentialsType {
 	return identity.CredentialsTypePin
 }
 
-func (s *Strategy) NodeGroup() node.Group {
+func (s *Strategy) NodeGroup() node.UiNodeGroup {
 	return node.PinGroup
 }
