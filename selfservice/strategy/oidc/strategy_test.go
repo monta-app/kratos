@@ -94,7 +94,7 @@ func TestStrategy(t *testing.T) {
 	testhelpers.SetDefaultIdentitySchema(conf, "file://./stub/registration.schema.json")
 	conf.MustSet(ctx, config.HookStrategyKey(config.ViperKeySelfServiceRegistrationAfter,
 		identity.CredentialsTypeOIDC.String()), []config.SelfServiceHook{{Name: "session"}})
-	conf.MustSet(config.ViperKeySelfServiceWebViewRedirectURL, webviewRedirectURI)
+	conf.MustSet(ctx, config.ViperKeySelfServiceWebViewRedirectURL, webviewRedirectURI)
 
 	t.Logf("Kratos Public URL: %s", ts.URL)
 	t.Logf("Kratos Error URL: %s", errTS.URL)
@@ -251,7 +251,7 @@ func TestStrategy(t *testing.T) {
 		return testhelpers.SubmitLoginForm(t, isAPI, nil, ts, values,
 			isSPA, forced,
 			testhelpers.ExpectStatusCode(isAPI || isSPA, http.StatusBadRequest, http.StatusOK),
-			testhelpers.ExpectURL(isAPI || isSPA, ts.URL+login.RouteSubmitFlow, conf.SelfServiceFlowLoginUI().String()))
+			testhelpers.ExpectURL(isAPI || isSPA, ts.URL+login.RouteSubmitFlow, conf.SelfServiceFlowLoginUI(ctx).String()))
 	}
 
 	t.Run("case=api should fail because id_token was not provided", func(t *testing.T) {
@@ -537,7 +537,7 @@ func TestStrategy(t *testing.T) {
 		returnTo := "/foo"
 
 		t.Run("case=should pass login", func(t *testing.T) {
-			r := newLoginFlow(t, fmt.Sprintf("%s?return_to=%s", returnTS.URL, returnTo), time.Minute)
+			r := newLoginFlowBrowser(t, fmt.Sprintf("%s?return_to=%s", returnTS.URL, returnTo), time.Minute)
 			action := afv(t, r.ID, "valid")
 			res, body := makeRequest(t, "valid", action, url.Values{})
 			assert.True(t, strings.HasSuffix(res.Request.URL.String(), returnTo))
@@ -565,7 +565,8 @@ func TestStrategy(t *testing.T) {
 
 		t.Run("case=should pass third time registration with return to", func(t *testing.T) {
 			returnTo := "/foo"
-			r := newLoginFlow(t, fmt.Sprintf("%s?return_to=%s", returnTS.URL, returnTo), time.Minute)
+			redirectTo := fmt.Sprintf("%s?return_to=%s", returnTS.URL, returnTo)
+			r := newLoginFlowBrowser(t, redirectTo, time.Minute)
 			action := afv(t, r.ID, "valid")
 			res, body := makeRequest(t, "valid", action, url.Values{})
 			assert.True(t, strings.HasSuffix(res.Request.URL.String(), returnTo))
