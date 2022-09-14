@@ -32,8 +32,8 @@ type smsClient struct {
 
 func newSMS(ctx context.Context, deps Dependencies) *smsClient {
 	return &smsClient{
-		RequestConfig:        deps.CourierConfig(ctx).CourierSMSRequestConfig(),
-		RequestStandbyConfig: deps.CourierConfig(ctx).CourierSMSStandbyRequestConfig(),
+		RequestConfig:        deps.CourierConfig().CourierSMSRequestConfig(ctx),
+		RequestStandbyConfig: deps.CourierConfig().CourierSMSStandbyRequestConfig(),
 
 		GetTemplateType:        SMSTemplateType,
 		NewTemplateFromMessage: NewSMSTemplateFromMessage,
@@ -86,13 +86,13 @@ func (c *courier) dispatchSMS(ctx context.Context, msg Message) error {
 	}
 
 	requestConfig := c.smsClient.RequestConfig
-	from := c.deps.CourierConfig(ctx).CourierSMSFrom()
+	from := c.deps.CourierConfig().CourierSMSFrom(ctx)
 	if smsStandby, ok := tmpl.(SMSStandbySender); ok {
 		requestStandbyConfig := c.smsClient.RequestStandbyConfig
 		if requestStandbyConfig != nil && bytes.Compare(requestStandbyConfig, []byte("{}")) != 0 {
 			if smsStandby.UseStandbySender() {
 				requestConfig = requestStandbyConfig
-				from = c.deps.CourierConfig(ctx).CourierSMSStandbyFrom()
+				from = c.deps.CourierConfig().CourierSMSStandbyFrom()
 			}
 		}
 	}

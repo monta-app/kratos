@@ -20,7 +20,7 @@ func (s *Strategy) VerificationStrategyID() string {
 	return verification.StrategyVerificationCodeName
 }
 
-func (s *Strategy) VerificationNodeGroup() node.Group {
+func (s *Strategy) VerificationNodeGroup() node.UiNodeGroup {
 	return node.CodeGroup
 }
 
@@ -165,7 +165,7 @@ func (s *Strategy) verificationHandleFormSubmission(w http.ResponseWriter, r *ht
 		return s.handleVerificationError(w, r, f, body, schema.NewRequiredError("#/identifier", "identifier"))
 	}
 
-	if err := flow.EnsureCSRF(s.d, r, f.Type, s.d.Config(r.Context()).DisableAPIFlowEnforcement(), s.d.GenerateCSRFToken, body.CSRFToken); err != nil {
+	if err := flow.EnsureCSRF(s.d, r, f.Type, s.d.Config().DisableAPIFlowEnforcement(r.Context()), s.d.GenerateCSRFToken, body.CSRFToken); err != nil {
 		return s.handleVerificationError(w, r, f, body, err)
 	}
 

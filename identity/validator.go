@@ -57,7 +57,7 @@ func (v *Validator) Validate(ctx context.Context, i *Identity) error {
 		NewSchemaExtensionVerification(
 			i,
 			v.d.Config().SelfServiceFlowVerificationRequestLifespan(ctx),
-			v.d.Config(ctx).SelfServiceCodeTestNumbers(),
+			v.d.Config().SelfServiceCodeTestNumbers(),
 		),
 		NewSchemaExtensionRecovery(i),
 	)

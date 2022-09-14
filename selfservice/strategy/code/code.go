@@ -24,7 +24,8 @@ type Code struct {
 }
 
 func (m Code) TableName(ctx context.Context) string {
-	return corp.ContextualizeTableName(ctx, "auth_codes")
+	contextNoOp := corp.ContextNoOp{}
+	return contextNoOp.ContextualizeTableName(ctx, "auth_codes")
 }
 
 func (m *Code) GetID() uuid.UUID {

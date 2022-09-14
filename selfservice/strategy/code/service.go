@@ -60,7 +60,7 @@ func (s *authenticationServiceImpl) SendCode(ctx context.Context, flow Flow, ide
 	codeValue := ""
 	useStandbySender := false
 	sendSMS := true
-	for _, n := range s.r.Config(ctx).SelfServiceCodeTestNumbers() {
+	for _, n := range s.r.Config().SelfServiceCodeTestNumbers() {
 		if n == identifier {
 			codeValue = "0000"
 			sendSMS = false
@@ -73,7 +73,7 @@ func (s *authenticationServiceImpl) SendCode(ctx context.Context, flow Flow, ide
 			return err
 		}
 		codeValue = s.r.RandomCodeGenerator().Generate(4)
-		requestStandbyConfig := s.r.Config(ctx).CourierSMSStandbyRequestConfig()
+		requestStandbyConfig := s.r.Config().CourierSMSStandbyRequestConfig()
 		if requestStandbyConfig != nil && bytes.Compare(requestStandbyConfig, []byte("{}")) != 0 {
 			var err error
 			useStandbySender, err = s.shouldUseStandbySender(ctx, identifier)
@@ -87,7 +87,7 @@ func (s *authenticationServiceImpl) SendCode(ctx context.Context, flow Flow, ide
 		FlowId:     flow.GetID(),
 		Identifier: identifier,
 		Code:       codeValue,
-		ExpiresAt:  s.r.Clock().Now().Add(s.r.Config(ctx).SelfServiceCodeLifespan()),
+		ExpiresAt:  s.r.Clock().Now().Add(s.r.Config().SelfServiceCodeLifespan()),
 	}); err != nil {
 		return err
 	}
@@ -138,14 +138,14 @@ func (s *authenticationServiceImpl) DoVerify(ctx context.Context, expectedCode *
 	if expectedCode.Code != code {
 		expectedCode.Attempts++
 		return expectedCode, NewInvalidCodeError()
-	} else if expectedCode.Attempts >= s.r.Config(ctx).SelfServiceCodeMaxAttempts() {
+	} else if expectedCode.Attempts >= s.r.Config().SelfServiceCodeMaxAttempts() {
 		return expectedCode, NewAttemptsExceededError()
 	}
 	return expectedCode, nil
 }
 
 func (s *authenticationServiceImpl) detectSpam(ctx context.Context, identifier string) error {
-	if !s.r.Config(ctx).SelfServiceCodeSMSSpamProtectionEnabled() {
+	if !s.r.Config().SelfServiceCodeSMSSpamProtectionEnabled() {
 		return nil
 	}
 
@@ -154,7 +154,7 @@ func (s *authenticationServiceImpl) detectSpam(ctx context.Context, identifier s
 	if err != nil {
 		return err
 	}
-	if count > s.r.Config(ctx).SelfServiceCodeSMSSpamProtectionMaxSingleNumber() {
+	if count > s.r.Config().SelfServiceCodeSMSSpamProtectionMaxSingleNumber() {
 		return NewSMSSpamError()
 	}
 
@@ -163,7 +163,7 @@ func (s *authenticationServiceImpl) detectSpam(ctx context.Context, identifier s
 	if err != nil {
 		return err
 	}
-	if count > s.r.Config(ctx).SelfServiceCodeSMSSpamProtectionMaxNumbersRange() {
+	if count > s.r.Config().SelfServiceCodeSMSSpamProtectionMaxNumbersRange() {
 		return NewSMSSpamError()
 	}
 
