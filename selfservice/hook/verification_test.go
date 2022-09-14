@@ -130,9 +130,10 @@ func TestPhoneVerifier(t *testing.T) {
 	u := &http.Request{URL: urlx.ParseOrPanic("https://www.ory.sh/")}
 
 	t.Run("verify phone number", func(t *testing.T) {
+		ctx := context.Background()
 		conf, reg := internal.NewFastRegistryWithMocks(t)
 		testhelpers.SetDefaultIdentitySchema(conf, "file://./stub/verify.phone.schema.json")
-		conf.MustSet(config.ViperKeyPublicBaseURL, "https://www.ory.sh/")
+		conf.MustSet(ctx, config.ViperKeyPublicBaseURL, "https://www.ory.sh/")
 
 		i := identity.NewIdentity(config.DefaultIdentityTraitsSchemaID)
 		i.Traits = identity.Traits(`{"phone":"+18004444444"}`)
@@ -147,7 +148,7 @@ func TestPhoneVerifier(t *testing.T) {
 
 		h := hook.NewVerifier(reg)
 		require.NoError(t, h.ExecuteSettingsPostPersistHook(httptest.NewRecorder(), u, originalFlow.(*settings.Flow), i))
-		expectedVerificationFlow, err := verification.NewPostHookFlow(conf, conf.SelfServiceFlowVerificationRequestLifespan(), "", u, reg.VerificationStrategies(context.Background()), originalFlow)
+		expectedVerificationFlow, err := verification.NewPostHookFlow(conf, conf.SelfServiceFlowVerificationRequestLifespan(ctx), "", u, reg.VerificationStrategies(context.Background()), originalFlow)
 		require.NoError(t, err)
 
 		var verificationFlow verification.Flow
@@ -172,7 +173,7 @@ func TestPhoneVerifier(t *testing.T) {
 		assert.EqualValues(t, identity.VerifiableAddressStatusSent, address1.Status)
 
 		require.NoError(t, h.ExecuteSettingsPostPersistHook(httptest.NewRecorder(), u, originalFlow.(*settings.Flow), i))
-		expectedVerificationFlow, err = verification.NewPostHookFlow(conf, conf.SelfServiceFlowVerificationRequestLifespan(), "", u, reg.VerificationStrategies(context.Background()), originalFlow)
+		expectedVerificationFlow, err = verification.NewPostHookFlow(conf, conf.SelfServiceFlowVerificationRequestLifespan(ctx), "", u, reg.VerificationStrategies(context.Background()), originalFlow)
 		var verificationFlow2 verification.Flow
 		require.NoError(t, reg.Persister().GetConnection(context.Background()).First(&verificationFlow2))
 		assert.Equal(t, expectedVerificationFlow.RequestURL, verificationFlow2.RequestURL)

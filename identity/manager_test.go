@@ -25,7 +25,7 @@ func TestManager(t *testing.T) {
 	testhelpers.SetDefaultIdentitySchema(conf, "file://./stub/manager.schema.json")
 	conf.MustSet(ctx, config.ViperKeyPublicBaseURL, "https://www.ory.sh/")
 	conf.MustSet(ctx, config.ViperKeyCourierSMTPURL, "smtp://foo@bar@dev.null/")
-	conf.MustSet(config.CodeTestNumbers, []string{"+12223333333"})
+	conf.MustSet(ctx, config.CodeTestNumbers, []string{"+12223333333"})
 
 	twoCredentiaTypesScheemaID := "two-credential-types"
 	testhelpers.SetIdentitySchemas(t, conf, map[string]string{

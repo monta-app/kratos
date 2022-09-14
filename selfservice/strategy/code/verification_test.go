@@ -29,13 +29,15 @@ import (
 func TestVerification(t *testing.T) {
 	conf, reg := internal.NewFastRegistryWithMocks(t)
 	testhelpers.SetDefaultIdentitySchema(conf, "file://./stub/default.schema.json")
-	conf.MustSet(config.ViperKeySelfServiceBrowserDefaultReturnTo, "https://www.ory.sh")
-	conf.MustSet(config.ViperKeyURLsAllowedReturnToDomains, []string{"https://www.ory.sh"})
-	conf.MustSet(config.ViperKeySelfServiceStrategyConfig+"."+identity.CredentialsTypePassword.String()+".enabled", true)
-	conf.MustSet(config.ViperKeySelfServiceStrategyConfig+"."+recovery.StrategyRecoveryLinkName+".enabled", true)
-	conf.MustSet(config.ViperKeySelfServiceStrategyConfig+"."+verification.StrategyVerificationCodeName+".enabled", true)
-	conf.MustSet(config.ViperKeySelfServiceRecoveryEnabled, true)
-	conf.MustSet(config.ViperKeySelfServiceVerificationEnabled, true)
+
+	ctx := context.Background()
+	conf.MustSet(ctx, config.ViperKeySelfServiceBrowserDefaultReturnTo, "https://www.ory.sh")
+	conf.MustSet(ctx, config.ViperKeyURLsAllowedReturnToDomains, []string{"https://www.ory.sh"})
+	conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+identity.CredentialsTypePassword.String()+".enabled", true)
+	conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+recovery.StrategyRecoveryLinkName+".enabled", true)
+	conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+verification.StrategyVerificationCodeName+".enabled", true)
+	conf.MustSet(ctx, config.ViperKeySelfServiceRecoveryEnabled, true)
+	conf.MustSet(ctx, config.ViperKeySelfServiceVerificationEnabled, true)
 
 	public, _ := testhelpers.NewKratosServerWithCSRF(t, reg)
 
@@ -47,7 +49,7 @@ func TestVerification(t *testing.T) {
 
 	var verificationPhone = gjson.GetBytes(identityToVerify.Traits, "phone").String()
 
-	require.NoError(t, reg.IdentityManager().Create(context.Background(), identityToVerify,
+	require.NoError(t, reg.IdentityManager().Create(ctx, identityToVerify,
 		identity.ManagerAllowWriteProtectedTraits))
 
 	var expect = func(t *testing.T, hc *http.Client, isAPI, isSPA bool, values func(url.Values), c int,
@@ -62,7 +64,7 @@ func TestVerification(t *testing.T) {
 
 		return testhelpers.SubmitVerificationForm(t, isAPI, isSPA, hc, public, values, c,
 			testhelpers.ExpectURL(isAPI || isSPA,
-				public.URL+verification.RouteSubmitFlow, conf.SelfServiceFlowVerificationUI().String()),
+				public.URL+verification.RouteSubmitFlow, conf.SelfServiceFlowVerificationUI(ctx).String()),
 			f)
 	}
 
@@ -110,7 +112,7 @@ func TestVerification(t *testing.T) {
 			assert.EqualValues(t, "passed_challenge", gjson.Get(body, "state").String())
 			assert.EqualValues(t, text.NewInfoSelfServicePhoneVerificationSuccessful().Text,
 				gjson.Get(body, "ui.messages.0.text").String())
-			id, err := reg.PrivilegedIdentityPool().GetIdentityConfidential(context.Background(), identityToVerify.ID)
+			id, err := reg.PrivilegedIdentityPool().GetIdentityConfidential(ctx, identityToVerify.ID)
 			require.NoError(t, err)
 			require.Len(t, id.VerifiableAddresses, 1)
 

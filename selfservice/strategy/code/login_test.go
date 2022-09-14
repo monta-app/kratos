@@ -39,7 +39,7 @@ func newReturnTs(t *testing.T, reg interface {
 		reg.Writer().Write(w, r, sess)
 	}))
 	t.Cleanup(ts.Close)
-	reg.Config(context.Background()).MustSet(config.ViperKeySelfServiceBrowserDefaultReturnTo, ts.URL+"/return-ts")
+	reg.Config().MustSet(context.Background(), config.ViperKeySelfServiceBrowserDefaultReturnTo, ts.URL+"/return-ts")
 	return ts
 }
 
@@ -60,27 +60,28 @@ func formMethodIsPOST(t *testing.T, body []byte) {
 }
 
 func TestStrategy_Login(t *testing.T) {
+	ctx := context.Background()
 	conf, reg := internal.NewFastRegistryWithMocks(t)
 	reg.WithRandomCodeGenerator(&randomCodeGeneratorStub{code: "0000"})
-	conf.MustSet(config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypeCode)+".enabled", true)
-	conf.MustSet(config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypePassword)+".enabled", false)
+	conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypeCode)+".enabled", true)
+	conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypePassword)+".enabled", false)
 	testhelpers.SetDefaultIdentitySchema(conf, "file://./stub/default.schema.json")
-	conf.MustSet(config.ViperKeyCourierSMTPURL, "smtp://foo@bar@dev.null/")
-	conf.MustSet(config.CodeMaxAttempts, 5)
-	conf.MustSet(config.CodeLifespan, "1h")
+	conf.MustSet(ctx, config.ViperKeyCourierSMTPURL, "smtp://foo@bar@dev.null/")
+	conf.MustSet(ctx, config.CodeMaxAttempts, 5)
+	conf.MustSet(ctx, config.CodeLifespan, "1h")
 
 	publicTS, _ := testhelpers.NewKratosServer(t, reg)
 	redirTS := newReturnTs(t, reg)
 
 	uiTS := testhelpers.NewLoginUIFlowEchoServer(t, reg)
 
-	conf.MustSet(config.ViperKeySelfServiceLoginUI, uiTS.URL+"/login-ts")
+	conf.MustSet(ctx, config.ViperKeySelfServiceLoginUI, uiTS.URL+"/login-ts")
 
 	var expectValidationError = func(t *testing.T, isAPI, forced, isSPA bool, values func(url.Values)) string {
 		return testhelpers.SubmitLoginForm(t, isAPI, nil, publicTS, values,
 			isSPA, forced,
 			testhelpers.ExpectStatusCode(isAPI || isSPA, http.StatusBadRequest, http.StatusOK),
-			testhelpers.ExpectURL(isAPI || isSPA, publicTS.URL+login.RouteSubmitFlow, conf.SelfServiceFlowLoginUI().String()),
+			testhelpers.ExpectURL(isAPI || isSPA, publicTS.URL+login.RouteSubmitFlow, conf.SelfServiceFlowLoginUI(ctx).String()),
 		)
 	}
 
@@ -131,7 +132,7 @@ func TestStrategy_Login(t *testing.T) {
 
 		body := testhelpers.SubmitLoginFormWithFlow(t, isAPI, nil, values,
 			false, http.StatusOK,
-			testhelpers.ExpectURL(isAPI || isSPA, publicTS.URL+login.RouteSubmitFlow, conf.SelfServiceFlowLoginUI().String()),
+			testhelpers.ExpectURL(isAPI || isSPA, publicTS.URL+login.RouteSubmitFlow, conf.SelfServiceFlowLoginUI(ctx).String()),
 			f)
 
 		assert.Equal(t,
@@ -183,14 +184,14 @@ func TestStrategy_Login(t *testing.T) {
 
 			check(t, loginWithPhone(t, false, false, false,
 				http.StatusOK,
-				conf.SelfServiceFlowLoginUI().String(),
+				conf.SelfServiceFlowLoginUI(ctx).String(),
 				values))
 		})
 	})
 
 	t.Run("should pass with registered user", func(t *testing.T) {
 		identifier := fmt.Sprintf("+45%s", fmt.Sprint(rand.Int())[0:8])
-		conf.MustSet(config.CodeTestNumbers, []string{identifier})
+		conf.MustSet(ctx, config.CodeTestNumbers, []string{identifier})
 		err, createdIdentity := createIdentity(identifier)
 		assert.NoError(t, err)
 

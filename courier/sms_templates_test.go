@@ -63,9 +63,9 @@ func TestNewSMSTemplateFromMessage(t *testing.T) {
 }
 
 func TestRemoteTemplate(t *testing.T) {
-	conf, reg := internal.NewFastRegistryWithMocks(t)
-	conf.MustSet(config.ViperKeyCourierTemplatesVerificationValidSMS, "base64://VGVzdCBjb2RlOiB7eyAuQ29kZSB9fQ==")
 	ctx := context.Background()
+	conf, reg := internal.NewFastRegistryWithMocks(t)
+	conf.MustSet(ctx, config.ViperKeyCourierTemplatesVerificationValidSMS, "base64://VGVzdCBjb2RlOiB7eyAuQ29kZSB9fQ==")
 	expectedTmpl := sms.NewCodeMessage(reg, &sms.CodeMessageModel{To: "+12345678901", Code: "1234"})
 
 	tmplData, err := json.Marshal(expectedTmpl)

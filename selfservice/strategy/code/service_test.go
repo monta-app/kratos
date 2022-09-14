@@ -30,13 +30,14 @@ type testContext struct {
 }
 
 func TestAuthenticationService_SendCode(t *testing.T) {
+	ctx := context.Background()
 	tc := testContext{
-		context.Background(),
+		ctx,
 		gomock.NewController(t),
 		internal.NewConfigurationWithDefaults(t),
 	}
 
-	tc.config.MustSet(config.CodeTestNumbers, []string{"test_phone_number"})
+	tc.config.MustSet(ctx, config.CodeTestNumbers, []string{"test_phone_number"})
 
 	tests := []struct {
 		name    string
@@ -89,8 +90,9 @@ func TestAuthenticationService_SendCode(t *testing.T) {
 }
 
 func TestAuthenticationServiceImpl_DoVerify(t *testing.T) {
+	ctx := context.Background()
 	tc := testContext{
-		context.Background(),
+		ctx,
 		gomock.NewController(t),
 		internal.NewConfigurationWithDefaults(t),
 	}
@@ -103,7 +105,7 @@ func TestAuthenticationServiceImpl_DoVerify(t *testing.T) {
 		tc.codeGenerator("x"),
 	})
 
-	tc.config.MustSet(config.CodeMaxAttempts, 5)
+	tc.config.MustSet(ctx, config.CodeMaxAttempts, 5)
 
 	tests := []struct {
 		name         string
@@ -145,13 +147,14 @@ func TestAuthenticationServiceImpl_DoVerify(t *testing.T) {
 }
 
 func TestAuthenticationService_VerifyCode(t *testing.T) {
+	ctx := context.Background()
 	tc := testContext{
-		context.Background(),
+		ctx,
 		gomock.NewController(t),
 		internal.NewConfigurationWithDefaults(t),
 	}
 
-	tc.config.MustSet(config.CodeMaxAttempts, 5)
+	tc.config.MustSet(ctx, config.CodeMaxAttempts, 5)
 
 	tests := []struct {
 		name    string
@@ -274,7 +277,7 @@ func (tc *testContext) courier() courier.Courier {
 }
 
 func (tc *testContext) lifespan(s string) *config.Config {
-	tc.config.MustSet(config.CodeLifespan, s)
+	tc.config.MustSet(tc.context, config.CodeLifespan, s)
 	return tc.config
 }
 
@@ -340,13 +343,13 @@ func (d *dependencies) CodePersister() code.CodePersister {
 func (d *dependencies) Courier(ctx context.Context) courier.Courier { return d.courier }
 
 //goland:noinspection GoUnusedParameter
-func (d *dependencies) Config(ctx context.Context) *config.Config { return d.config }
+func (d *dependencies) Config() *config.Config { return d.config }
 
 func (d *dependencies) RandomCodeGenerator() code.RandomCodeGenerator {
 	return d.randomCodeGenerator
 }
 
-func (d *dependencies) CourierConfig(ctx context.Context) config.CourierConfigs { return d.config }
+func (d *dependencies) CourierConfig() config.CourierConfigs { return d.config }
 
 func (d *dependencies) HTTPClient(ctx context.Context, opts ...httpx.ResilientOptions) *retryablehttp.Client {
 	return httpx.NewResilientClient()

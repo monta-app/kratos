@@ -34,11 +34,13 @@ import (
 
 func TestRegistration(t *testing.T) {
 	t.Run("case=registration", func(t *testing.T) {
+
 		conf, reg := internal.NewFastRegistryWithMocks(t)
+		ctx := context.Background()
 
 		router := x.NewRouterPublic()
 		admin := x.NewRouterAdmin()
-		conf.MustSet(config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypeCode), map[string]interface{}{"enabled": true})
+		conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypeCode), map[string]interface{}{"enabled": true})
 
 		publicTS, _ := testhelpers.NewKratosServerWithRouters(t, reg, router, admin)
 		//errTS := testhelpers.NewErrorTestServer(t, reg)
@@ -46,10 +48,10 @@ func TestRegistration(t *testing.T) {
 		redirTS := testhelpers.NewRedirSessionEchoTS(t, reg)
 
 		// Overwrite these two to ensure that they run
-		conf.MustSet(config.ViperKeySelfServiceBrowserDefaultReturnTo, redirTS.URL+"/default-return-to")
-		conf.MustSet(config.ViperKeySelfServiceRegistrationAfter+"."+config.DefaultBrowserReturnURL, redirTS.URL+"/registration-return-ts")
+		conf.MustSet(ctx, config.ViperKeySelfServiceBrowserDefaultReturnTo, redirTS.URL+"/default-return-to")
+		conf.MustSet(ctx, config.ViperKeySelfServiceRegistrationAfter+"."+config.DefaultBrowserReturnURL, redirTS.URL+"/registration-return-ts")
 		testhelpers.SetDefaultIdentitySchema(conf, "file://./stub/default.schema.json")
-		conf.MustSet(config.CodeMaxAttempts, 5)
+		conf.MustSet(ctx, config.CodeMaxAttempts, 5)
 
 		t.Run("case=should fail if identifier changed when submitted with code", func(t *testing.T) {
 			identifier := "+4550050000"
@@ -88,7 +90,7 @@ func TestRegistration(t *testing.T) {
 
 		t.Run("case=should fail if spam detected", func(t *testing.T) {
 			identifier := "+4550050001"
-			conf.MustSet(config.CodeSMSSpamProtectionEnabled, true)
+			conf.MustSet(ctx, config.CodeSMSSpamProtectionEnabled, true)
 
 			for i := 0; i <= 50; i++ {
 				requestCode(t, publicTS, identifier, http.StatusOK)
@@ -168,9 +170,9 @@ func TestRegistration(t *testing.T) {
 
 		t.Run("case=should pass and set up a session", func(t *testing.T) {
 			testhelpers.SetDefaultIdentitySchema(conf, "file://./stub/default.schema.json")
-			conf.MustSet(config.HookStrategyKey(config.ViperKeySelfServiceRegistrationAfter, identity.CredentialsTypeCode.String()), []config.SelfServiceHook{{Name: "session"}})
+			conf.MustSet(ctx, config.HookStrategyKey(config.ViperKeySelfServiceRegistrationAfter, identity.CredentialsTypeCode.String()), []config.SelfServiceHook{{Name: "session"}})
 			t.Cleanup(func() {
-				conf.MustSet(config.HookStrategyKey(config.ViperKeySelfServiceRegistrationAfter, identity.CredentialsTypeCode.String()), nil)
+				conf.MustSet(ctx, config.HookStrategyKey(config.ViperKeySelfServiceRegistrationAfter, identity.CredentialsTypeCode.String()), nil)
 			})
 
 			identifier := "+4570050001"
@@ -204,7 +206,7 @@ func TestRegistration(t *testing.T) {
 
 		t.Run("case=should create verifiable address", func(t *testing.T) {
 			identifier := "+1234567890"
-			conf.MustSet(config.CodeTestNumbers, []string{identifier})
+			conf.MustSet(ctx, config.CodeTestNumbers, []string{identifier})
 			createdIdentity := &identity.Identity{
 				SchemaID: "default",
 				Traits:   identity.Traits(fmt.Sprintf(`{"phone":"%s"}`, identifier)),
@@ -220,9 +222,9 @@ func TestRegistration(t *testing.T) {
 		})
 
 		t.Run("method=TestPopulateSignUpMethod", func(t *testing.T) {
-			conf.MustSet(config.ViperKeyPublicBaseURL, "https://foo/")
+			conf.MustSet(ctx, config.ViperKeyPublicBaseURL, "https://foo/")
 			t.Cleanup(func() {
-				conf.MustSet(config.ViperKeyPublicBaseURL, publicTS.URL)
+				conf.MustSet(ctx, config.ViperKeyPublicBaseURL, publicTS.URL)
 			})
 
 			sr, err := registration.NewFlow(conf, time.Minute, "nosurf", &http.Request{URL: urlx.ParseOrPanic("/")}, flow.TypeBrowser)
@@ -249,14 +251,12 @@ func TestRegistration(t *testing.T) {
 				"body": "file://./stub/request.config.twilio.jsonnet"
 			}`
 
-			conf.MustSet(config.ViperKeyCourierSMSRequestConfig, fmt.Sprintf(configTemplate, senderSrv.URL))
-			conf.MustSet(config.ViperKeyCourierSMSStandbyRequestConfig, fmt.Sprintf(configTemplate, standbySenderSrv.URL))
-			conf.MustSet(config.ViperKeyCourierSMSFrom, "test sender")
-			conf.MustSet(config.ViperKeyCourierSMSStandbyFrom, "test standby sender")
-			conf.MustSet(config.ViperKeyCourierSMSEnabled, true)
-			conf.MustSet(config.ViperKeyCourierSMTPURL, "http://foo.url")
-
-			ctx := context.Background()
+			conf.MustSet(ctx, config.ViperKeyCourierSMSRequestConfig, fmt.Sprintf(configTemplate, senderSrv.URL))
+			conf.MustSet(ctx, config.ViperKeyCourierSMSStandbyRequestConfig, fmt.Sprintf(configTemplate, standbySenderSrv.URL))
+			conf.MustSet(ctx, config.ViperKeyCourierSMSFrom, "test sender")
+			conf.MustSet(ctx, config.ViperKeyCourierSMSStandbyFrom, "test standby sender")
+			conf.MustSet(ctx, config.ViperKeyCourierSMSEnabled, true)
+			conf.MustSet(ctx, config.ViperKeyCourierSMTPURL, "http://foo.url")
 
 			c := reg.Courier(ctx)
 
