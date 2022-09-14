@@ -176,21 +176,22 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 		return nil, errors.WithStack(flow.ErrStrategyNotResponsible)
 	}
 
-	if err := flow.MethodEnabledAndAllowed(r.Context(), s.SettingsStrategyID(), s.SettingsStrategyID(), s.d); err != nil {
+	ctx := r.Context()
+	if err := flow.MethodEnabledAndAllowed(ctx, s.SettingsStrategyID(), s.SettingsStrategyID(), s.d); err != nil {
 		return nil, s.handleError(w, r, f, pid, nil, err)
 	}
 
-	provider, err := s.provider(r.Context(), r, pid)
+	provider, err := s.provider(ctx, r, pid)
 	if err != nil {
 		return nil, s.handleError(w, r, f, pid, nil, err)
 	}
 
-	c, err := provider.OAuth2(r.Context())
+	c, err := provider.OAuth2(ctx)
 	if err != nil {
 		return nil, s.handleError(w, r, f, pid, nil, err)
 	}
 
-	req, err := s.validateFlow(r.Context(), r, f.ID)
+	req, err := s.validateFlow(ctx, r, f.ID)
 	if err != nil {
 		return nil, s.handleError(w, r, f, pid, nil, err)
 	}
@@ -201,7 +202,7 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 
 	state := generateState(f.ID.String())
 	if f.Type == flow.TypeBrowser {
-		if err := s.d.ContinuityManager().Pause(r.Context(), w, r, sessionName,
+		if err := s.d.ContinuityManager().Pause(ctx, w, r, sessionName,
 			continuity.WithPayload(&authCodeContainer{
 				State:  state,
 				FlowID: f.ID.String(),
@@ -216,12 +217,12 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 		var claims *Claims
 		if apiFlowProvider, ok := provider.(APIFlowProvider); ok {
 			if len(idToken) > 0 {
-				claims, err = apiFlowProvider.ClaimsFromIdToken(r.Context(), idToken)
+				claims, err = apiFlowProvider.ClaimsFromIdToken(ctx, idToken)
 				if err != nil {
 					return nil, errors.WithStack(err)
 				}
 			} else if len(accessToken) > 0 {
-				claims, err = apiFlowProvider.ClaimsFromAccessToken(r.Context(), accessToken)
+				claims, err = apiFlowProvider.ClaimsFromAccessToken(ctx, accessToken)
 				if err != nil {
 					return nil, errors.WithStack(err)
 				}
@@ -232,16 +233,16 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 			return nil, s.handleError(w, r, f, p.Provider, nil, ErrProviderNoAPISupport)
 		}
 
-		i, _, err := s.d.PrivilegedIdentityPool().FindByCredentialsIdentifier(r.Context(),
+		i, _, err := s.d.PrivilegedIdentityPool().FindByCredentialsIdentifier(ctx,
 			identity.CredentialsTypeOIDC,
 			identity.OIDCUniqueID(provider.Config().ID, claims.Subject))
 		if err != nil {
 			if !errors.Is(err, sqlcon.ErrNoRows) {
 				return nil, err
 			}
-			i = identity.NewIdentity(s.d.Config(r.Context()).DefaultIdentityTraitsSchemaID())
+			i = identity.NewIdentity(s.d.Config().DefaultIdentityTraitsSchemaID(ctx))
 
-			fetch := fetcher.NewFetcher(fetcher.WithClient(s.d.HTTPClient(r.Context())))
+			fetch := fetcher.NewFetcher(fetcher.WithClient(s.d.HTTPClient(ctx)))
 			jn, err := fetch.Fetch(provider.Config().Mapper)
 			if err != nil {
 				return nil, s.handleError(w, r, f, provider.Config().ID, nil, err)
@@ -289,7 +290,7 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 			//}
 
 			// Validate the identity itself
-			if err := s.d.IdentityValidator().Validate(r.Context(), i); err != nil {
+			if err := s.d.IdentityValidator().Validate(ctx, i); err != nil {
 				return nil, s.handleError(w, r, f, provider.Config().ID, i.Traits, err)
 			}
 
@@ -305,7 +306,7 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 
 			i.SetCredentials(s.ID(), *creds)
 
-			if err := s.d.IdentityManager().Create(r.Context(), i); err != nil {
+			if err := s.d.IdentityManager().Create(ctx, i); err != nil {
 				if errors.Is(err, sqlcon.ErrUniqueViolation) {
 					return nil, schema.NewDuplicateCredentialsError()
 				}
@@ -335,7 +336,7 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 	}
 
 	f.Active = s.ID()
-	if err = s.d.LoginFlowPersister().UpdateLoginFlow(r.Context(), f); err != nil {
+	if err = s.d.LoginFlowPersister().UpdateLoginFlow(ctx, f); err != nil {
 		return nil, s.handleError(w, r, f, pid, nil, errors.WithStack(herodot.ErrInternalServerError.WithReason("Could not update flow").WithDebug(err.Error())))
 	}
 
