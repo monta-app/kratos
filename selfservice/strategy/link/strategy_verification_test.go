@@ -139,7 +139,7 @@ func TestVerification(t *testing.T) {
 
 		t.Run("type=browser", func(t *testing.T) {
 			actual := expectValidationError(t, nil, false, false, values)
-			assert.EqualValues(t, string(node.VerificationLinkGroup), gjson.Get(actual, "browser_flow.active").String(), "%s", actual)
+			assert.EqualValues(t, string(node.LinkGroup), gjson.Get(actual, "browser_flow.active").String(), "%s", actual)
 			assert.EqualValues(t, "Property email is missing.",
 				gjson.Get(actual, "browser_flow.ui.nodes.#(attributes.name==email).messages.0.text").String(),
 				"%s", actual)
@@ -170,7 +170,7 @@ func TestVerification(t *testing.T) {
 
 			t.Run("type=browser", func(t *testing.T) {
 				actual := expectValidationError(t, nil, false, false, values)
-				assert.EqualValues(t, string(node.VerificationLinkGroup), gjson.Get(actual, "browser_flow.active").String(), "%s", actual)
+				assert.EqualValues(t, string(node.LinkGroup), gjson.Get(actual, "browser_flow.active").String(), "%s", actual)
 				assert.EqualValues(t, fmt.Sprintf("%q is not valid \"email\"", email),
 					gjson.Get(actual, "browser_flow.ui.nodes.#(attributes.name==email).messages.0.text").String(),
 					"%s", actual)
@@ -204,7 +204,7 @@ func TestVerification(t *testing.T) {
 		t.Run("type=browser", func(t *testing.T) {
 			email = x.NewUUID().String() + "@ory.sh"
 			actual := expectSuccess(t, nil, false, false, values)
-			assert.EqualValues(t, string(node.VerificationLinkGroup), gjson.Get(actual, "browser_flow.active").String(), "%s", actual)
+			assert.EqualValues(t, string(node.LinkGroup), gjson.Get(actual, "browser_flow.active").String(), "%s", actual)
 			assert.EqualValues(t, email, gjson.Get(actual, "browser_flow.ui.nodes.#(attributes.name==email).attributes.value").String(), "%s", actual)
 			assertx.EqualAsJSON(t, text.NewVerificationEmailSent(), json.RawMessage(gjson.Get(actual, "browser_flow.ui.messages.0").Raw))
 
@@ -271,7 +271,7 @@ func TestVerification(t *testing.T) {
 			res, err := c.Get(public.URL + verification.RouteSubmitFlow + "?flow=" + f.Id + "&token=i-do-not-exist")
 			require.NoError(t, err)
 			assert.Equal(t, http.StatusOK, res.StatusCode)
-			assert.Contains(t, res.Request.URL.String(), conf.SelfServiceFlowVerificationUI().String()+"?flow=")
+			assert.Contains(t, res.Request.URL.String(), conf.SelfServiceFlowVerificationUI(ctx).String()+"?flow=")
 
 			sr, _, err := testhelpers.NewSDKCustomClient(public, c).V0alpha2Api.GetSelfServiceVerificationFlow(context.Background()).Id(res.Request.URL.Query().Get("flow")).Execute()
 			require.NoError(t, err)
@@ -435,7 +435,7 @@ func TestVerification(t *testing.T) {
 		}
 
 		var checkApi = func(t *testing.T, actual string) {
-			assert.EqualValues(t, string(node.VerificationLinkGroup), gjson.Get(actual, "active").String(), "%s", actual)
+			assert.EqualValues(t, string(node.LinkGroup), gjson.Get(actual, "active").String(), "%s", actual)
 			assert.EqualValues(t, verificationEmail, gjson.Get(actual, "ui.nodes.#(attributes.name==email).attributes.value").String(), "%s", actual)
 			assertx.EqualAsJSON(t, text.NewVerificationEmailSent(), json.RawMessage(gjson.Get(actual, "ui.messages.0").Raw))
 
@@ -472,11 +472,11 @@ func TestVerification(t *testing.T) {
 		t.Run("type=browser", func(t *testing.T) {
 			actual := expectSuccess(t, nil, false, false, values)
 
-			assert.EqualValues(t, string(node.VerificationLinkGroup), gjson.Get(actual, "browser_flow.active").String(), "%s", actual)
+			assert.EqualValues(t, string(node.LinkGroup), gjson.Get(actual, "browser_flow.active").String(), "%s", actual)
 			assert.EqualValues(t, verificationEmail, gjson.Get(actual, "browser_flow.ui.nodes.#(attributes.name==email).attributes.value").String(), "%s", actual)
 			assertx.EqualAsJSON(t, text.NewVerificationEmailSent(), json.RawMessage(gjson.Get(actual, "browser_flow.ui.messages.0").Raw))
 
-			checkBrowser(t)
+			checkBrowser(t, actual)
 		})
 
 		t.Run("type=spa", func(t *testing.T) {
@@ -490,11 +490,11 @@ func TestVerification(t *testing.T) {
 		t.Run("type=api and browser check", func(t *testing.T) {
 			actual := expectSuccess(t, nil, true, false, values)
 
-			assert.EqualValues(t, string(node.VerificationLinkGroup), gjson.Get(actual, "active").String(), "%s", actual)
+			assert.EqualValues(t, string(node.LinkGroup), gjson.Get(actual, "active").String(), "%s", actual)
 			assert.EqualValues(t, verificationEmail, gjson.Get(actual, "ui.nodes.#(attributes.name==email).attributes.value").String(), "%s", actual)
 			assertx.EqualAsJSON(t, text.NewVerificationEmailSent(), json.RawMessage(gjson.Get(actual, "ui.messages.0").Raw))
 
-			checkBrowser(t)
+			checkBrowser(t, actual)
 		})
 	})
 
@@ -567,6 +567,6 @@ func TestVerification(t *testing.T) {
 		assert.Equal(t, http.StatusSeeOther, res.StatusCode)
 		redirectURL, err := res.Location()
 		require.NoError(t, err)
-		assert.Equal(t, returnToURL+"?flow="+flow.ID.String(), redirectURL.String())
+		assert.Equal(t, returnToURL+"?flow="+validFlow.ID.String(), redirectURL.String())
 	})
 }
