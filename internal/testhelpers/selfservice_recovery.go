@@ -27,14 +27,7 @@ func NewVerificationUIFlowEchoServer(t *testing.T, reg driver.Registry) *httptes
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		e, err := reg.VerificationFlowPersister().GetVerificationFlow(r.Context(), x.ParseUUID(r.URL.Query().Get("flow")))
 		require.NoError(t, err)
-		if x.AcceptsJSON(r) {
-			reg.Writer().Write(w, r, e)
-		} else {
-			type Html struct {
-				Flow *verification.Flow `json:"browser_flow"`
-			}
-			reg.Writer().Write(w, r, Html{Flow: e})
-		}
+		reg.Writer().Write(w, r, e)
 	}))
 	reg.Config().MustSet(ctx, config.ViperKeySelfServiceVerificationUI, ts.URL+"/verification-ts")
 	t.Cleanup(ts.Close)
