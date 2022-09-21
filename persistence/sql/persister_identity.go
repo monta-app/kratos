@@ -346,7 +346,7 @@ func (p *Persister) ListIdentitiesFiltered(ctx context.Context, filters map[stri
 	defer span.End()
 
 	is := []identity.Identity{}
-	if err := sqlcon.HandleError(p.GetConnection(ctx).Where("identities.nid = ?", corp.ContextualizeNID(ctx, p.nid)).
+	if err := sqlcon.HandleError(p.GetConnection(ctx).Where("identities.nid = ?", p.NetworkID(ctx)).
 		LeftJoin("identity_credentials ic", "identities.id=ic.identity_id").
 		LeftJoin("identity_credential_types credential_types", "credential_types.id=ic.identity_credential_type_id").
 		LeftJoin("identity_credential_identifiers credential_identifiers", "credential_identifiers.identity_credential_id=ic.id").

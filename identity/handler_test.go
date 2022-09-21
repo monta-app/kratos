@@ -887,7 +887,7 @@ func TestHandler(t *testing.T) {
 		for name, ts := range map[string]*httptest.Server{"public": publicTS, "admin": adminTS} {
 			t.Run("endpoint="+name, func(t *testing.T) {
 				res := get(t, ts, `/identities?traits.bar=baz&traits.foo=baz`, http.StatusOK)
-				assert.Equal(t, 1, len(res.Array()), "%s", res.Raw)
+				assert.Equal(t, 2, len(res.Array()), "%s", res.Raw)
 				assert.Equal(t, "baz", res.Array()[0].Get("traits.foo").String(), res.Raw)
 			})
 		}
