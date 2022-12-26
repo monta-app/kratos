@@ -49,6 +49,7 @@ func flowToIsSPA(flow string) bool {
 func newRegistrationRegistry(t *testing.T) *driver.RegistryDefault {
 	conf, reg := internal.NewFastRegistryWithMocks(t)
 	conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypePassword)+".enabled", true)
+	conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypeCode)+".enabled", false)
 	enableWebAuthn(conf)
 	conf.MustSet(ctx, config.ViperKeyWebAuthnPasswordless, true)
 	return reg

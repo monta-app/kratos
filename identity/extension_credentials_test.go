@@ -6,6 +6,7 @@ package identity_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -35,6 +36,15 @@ func TestSchemaExtensionCredentials(t *testing.T) {
 			schema: "file://./stub/extension/credentials/schema.json",
 			expect: []string{"foo@ory.sh"},
 			ct:     identity.CredentialsTypePassword,
+		},
+		{
+			doc:    `{}`,
+			schema: "file://./stub/extension/credentials/schema.json",
+			expect: []string{},
+			existing: &identity.Credentials{
+				Identifiers: []string{"foo@ory.sh"},
+			},
+			ct: identity.CredentialsTypePassword,
 		},
 		{
 			doc:    `{"emails":["foo@ory.sh","foo@ory.sh","bar@ory.sh"], "username": "foobar"}`,
@@ -72,6 +82,18 @@ func TestSchemaExtensionCredentials(t *testing.T) {
 			},
 			ct: identity.CredentialsTypeWebAuthn,
 		},
+		{
+			doc:       `{"phone":"not-valid-number"}`,
+			schema:    "file://./stub/extension/credentials/code.schema.json",
+			ct:        identity.CredentialsTypeCode,
+			expectErr: errors.New("I[#/phone] S[#/properties/phone] validation failed\n  I[#/phone] S[#/properties/phone/format] \"not-valid-number\" is not valid \"tel\"\n  I[#/phone] S[#/properties/phone/format] the phone number supplied is not a number"),
+		},
+		{
+			doc:    `{"phone":"+4407376494399"}`,
+			schema: "file://./stub/extension/credentials/code.schema.json",
+			expect: []string{"+447376494399"},
+			ct:     identity.CredentialsTypeCode,
+		},
 	} {
 		t.Run(fmt.Sprintf("case=%d", k), func(t *testing.T) {
 			c := jsonschema.NewCompiler()
@@ -88,12 +110,16 @@ func TestSchemaExtensionCredentials(t *testing.T) {
 			err = c.MustCompile(ctx, tc.schema).Validate(bytes.NewBufferString(tc.doc))
 			if tc.expectErr != nil {
 				require.EqualError(t, err, tc.expectErr.Error())
+			} else {
+				require.NoError(t, err)
 			}
 			require.NoError(t, e.Finish())
 
-			credentials, ok := i.GetCredentials(tc.ct)
-			require.True(t, ok)
-			assert.ElementsMatch(t, tc.expect, credentials.Identifiers)
+			if tc.expectErr == nil {
+				credentials, ok := i.GetCredentials(tc.ct)
+				require.True(t, ok)
+				assert.ElementsMatch(t, tc.expect, credentials.Identifiers)
+			}
 		})
 	}
 }

@@ -188,6 +188,8 @@ Class | Method | HTTP request | Description
  - [SessionDevice](docs/SessionDevice.md)
  - [SettingsFlow](docs/SettingsFlow.md)
  - [SettingsFlowState](docs/SettingsFlowState.md)
+ - [SubmitSelfServiceLoginFlowWithCodeMethod](docs/SubmitSelfServiceLoginFlowWithCodeMethod.md)
+ - [SubmitSelfServiceRegistrationFlowWithCodeMethodBody](docs/SubmitSelfServiceRegistrationFlowWithCodeMethodBody.md)
  - [SuccessfulNativeLogin](docs/SuccessfulNativeLogin.md)
  - [SuccessfulNativeRegistration](docs/SuccessfulNativeRegistration.md)
  - [TokenPagination](docs/TokenPagination.md)

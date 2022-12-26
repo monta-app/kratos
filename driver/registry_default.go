@@ -22,12 +22,12 @@ import (
 	"github.com/ory/x/otelx"
 	otelsql "github.com/ory/x/otelx/sql"
 
+	"github.com/benbjohnson/clock"
 	"github.com/gobuffalo/pop/v6"
 
 	"github.com/ory/nosurf"
 
 	"github.com/ory/kratos/hydra"
-	"github.com/ory/kratos/selfservice/strategy/code"
 	"github.com/ory/kratos/selfservice/strategy/webauthn"
 
 	"github.com/ory/kratos/selfservice/strategy/lookup"
@@ -46,6 +46,7 @@ import (
 	"github.com/ory/kratos/selfservice/flow/settings"
 	"github.com/ory/kratos/selfservice/flow/verification"
 	"github.com/ory/kratos/selfservice/hook"
+	"github.com/ory/kratos/selfservice/strategy/code"
 	"github.com/ory/kratos/selfservice/strategy/link"
 	"github.com/ory/kratos/selfservice/strategy/profile"
 	"github.com/ory/kratos/x"
@@ -79,9 +80,10 @@ import (
 )
 
 type RegistryDefault struct {
-	rwl sync.RWMutex
-	l   *logrusx.Logger
-	c   *config.Config
+	rwl   sync.RWMutex
+	l     *logrusx.Logger
+	c     *config.Config
+	clock clock.Clock
 
 	ctxer contextx.Contextualizer
 
@@ -148,6 +150,9 @@ type RegistryDefault struct {
 
 	selfserviceLinkSender *link.Sender
 	selfserviceCodeSender *code.Sender
+
+	selfserviceCodeAuthenticationService code.AuthenticationService
+	selfserviceRandomCodeGenerator       code.RandomCodeGenerator
 
 	selfserviceRecoveryErrorHandler *recovery.ErrorHandler
 	selfserviceRecoveryHandler      *recovery.Handler
@@ -743,6 +748,10 @@ func (m *RegistryDefault) VerificationTokenPersister() link.VerificationTokenPer
 func (m *RegistryDefault) VerificationCodePersister() code.VerificationCodePersister {
 	return m.Persister()
 }
+func (m *RegistryDefault) CodePersister() code.CodePersister {
+	return m.Persister()
+}
+
 func (m *RegistryDefault) Persister() persistence.Persister {
 	return m.persister
 }
@@ -811,4 +820,15 @@ func (m *RegistryDefault) Contextualizer() contextx.Contextualizer {
 		panic("registry Contextualizer not set")
 	}
 	return m.ctxer
+}
+
+func (m *RegistryDefault) Clock() clock.Clock {
+	if m.clock == nil {
+		m.clock = clock.New()
+	}
+	return m.clock
+}
+
+func (m *RegistryDefault) WithRandomCodeGenerator(generator code.RandomCodeGenerator) {
+	m.selfserviceRandomCodeGenerator = generator
 }

@@ -3,6 +3,8 @@
 
 package courier
 
+//go:generate mockgen -destination=mocks/mock_courier.go -package=mocks github.com/ory/kratos/courier Courier
+
 import (
 	"context"
 	"time"
@@ -98,9 +100,15 @@ func (c *courier) UseBackoff(b backoff.BackOff) {
 func (c *courier) watchMessages(ctx context.Context, errChan chan error) {
 	c.backoff.Reset()
 	for {
-		if err := backoff.Retry(func() error {
-			return c.DispatchQueue(ctx)
-		}, c.backoff); err != nil {
+		if err := backoff.RetryNotify(
+			func() error {
+				return c.DispatchQueue(ctx)
+			},
+			c.backoff,
+			func(err error, t time.Duration) {
+				c.deps.Logger().WithError(err).Error("Courier DispatchQueue error")
+			},
+		); err != nil {
 			errChan <- err
 			return
 		}

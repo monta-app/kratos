@@ -216,6 +216,29 @@ func SubmitLoginForm(
 	}
 
 	hc.Transport = NewTransportWithLogger(hc.Transport, t)
+
+	var f = InitializeLoginFlow(t, isAPI, hc, publicTS, isSPA, forced, opts...)
+
+	return SubmitLoginFormWithFlow(t, isAPI, hc, withValues, isSPA, expectedStatusCode, expectedURL, f)
+}
+
+func InitializeLoginFlow(
+	t *testing.T,
+	isAPI bool,
+	hc *http.Client,
+	publicTS *httptest.Server,
+	isSPA bool,
+	forced bool,
+	opts ...InitFlowWithOption,
+) *kratos.LoginFlow {
+	if hc == nil {
+		hc = new(http.Client)
+		if !isAPI {
+			hc = NewClientWithCookies(t)
+		}
+	}
+
+	hc.Transport = NewTransportWithLogger(hc.Transport, t)
 	var f *kratos.LoginFlow
 	if isAPI {
 		f = InitializeLoginFlowViaAPI(t, hc, publicTS, forced, opts...)
@@ -225,9 +248,31 @@ func SubmitLoginForm(
 
 	time.Sleep(time.Millisecond) // add a bit of delay to allow `1ns` to time out.
 
-	payload := SDKFormFieldsToURLValues(f.Ui.Nodes)
+	return f
+}
+
+func SubmitLoginFormWithFlow(
+	t *testing.T,
+	isAPI bool,
+	hc *http.Client,
+	withValues func(v url.Values),
+	isSPA bool,
+	expectedStatusCode int,
+	expectedURL string,
+	flow *kratos.LoginFlow,
+) string {
+	if hc == nil {
+		hc = new(http.Client)
+		if !isAPI {
+			hc = NewClientWithCookies(t)
+		}
+	}
+
+	hc.Transport = NewTransportWithLogger(hc.Transport, t)
+
+	payload := SDKFormFieldsToURLValues(flow.Ui.Nodes)
 	withValues(payload)
-	b, res := LoginMakeRequest(t, isAPI, isSPA, f, hc, EncodeFormAsJSON(t, isAPI, payload))
+	b, res := LoginMakeRequest(t, isAPI, isSPA, flow, hc, EncodeFormAsJSON(t, isAPI, payload))
 	assert.EqualValues(t, expectedStatusCode, res.StatusCode, "%s", b)
 	assert.Contains(t, res.Request.URL.String(), expectedURL, "%+v\n\t%s", res.Request, b)
 

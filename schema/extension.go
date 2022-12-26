@@ -24,6 +24,9 @@ type (
 			Password struct {
 				Identifier bool `json:"identifier"`
 			} `json:"password"`
+			Code struct {
+				Identifier bool `json:"identifier"`
+			} `json:"code"`
 			WebAuthn struct {
 				Identifier bool `json:"identifier"`
 			} `json:"webauthn"`

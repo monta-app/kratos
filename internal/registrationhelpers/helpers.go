@@ -9,6 +9,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"github.com/ory/kratos/identity"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -278,6 +279,8 @@ func AssertRegistrationRespectsValidation(t *testing.T, reg *driver.RegistryDefa
 func AssertCommonErrorCases(t *testing.T, reg *driver.RegistryDefault, flows []string) {
 	ctx := context.Background()
 	conf, reg := internal.NewFastRegistryWithMocks(t)
+	conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypeCode),
+		map[string]interface{}{"enabled": false})
 	testhelpers.SetDefaultIdentitySchemaFromRaw(conf, basicSchema)
 	uiTS := testhelpers.NewRegistrationUIFlowEchoServer(t, reg)
 	publicTS := setupServer(t, reg)

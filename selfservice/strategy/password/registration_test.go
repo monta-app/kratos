@@ -474,6 +474,8 @@ func TestRegistration(t *testing.T) {
 
 	t.Run("method=PopulateSignUpMethod", func(t *testing.T) {
 		conf, reg := internal.NewFastRegistryWithMocks(t)
+		conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypeCode),
+			map[string]interface{}{"enabled": false})
 
 		conf.MustSet(ctx, config.ViperKeyPublicBaseURL, "https://foo/")
 		testhelpers.SetDefaultIdentitySchema(conf, "file://stub/sort.schema.json")

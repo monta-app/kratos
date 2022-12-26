@@ -28,7 +28,7 @@ type Message struct {
 	SendCount  int64                `json:"send_count"`
 	Status     CourierMessageStatus `json:"status"`
 	Subject    string               `json:"subject"`
-	//  recovery_invalid TypeRecoveryInvalid recovery_valid TypeRecoveryValid recovery_code_invalid TypeRecoveryCodeInvalid recovery_code_valid TypeRecoveryCodeValid verification_invalid TypeVerificationInvalid verification_valid TypeVerificationValid verification_code_invalid TypeVerificationCodeInvalid verification_code_valid TypeVerificationCodeValid otp TypeOTP stub TypeTestStub
+	//  recovery_invalid TypeRecoveryInvalid recovery_valid TypeRecoveryValid recovery_code_invalid TypeRecoveryCodeInvalid recovery_code_valid TypeRecoveryCodeValid verification_invalid TypeVerificationInvalid verification_valid TypeVerificationValid verification_code_invalid TypeVerificationCodeInvalid verification_code_valid TypeVerificationCodeValid otp TypeOTP stub TypeTestStub code TypeCode
 	TemplateType string             `json:"template_type"`
 	Type         CourierMessageType `json:"type"`
 	// UpdatedAt is a helper struct field for gobuffalo.pop.

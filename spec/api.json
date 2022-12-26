@@ -1239,7 +1239,7 @@
             "type": "string"
           },
           "template_type": {
-            "description": "\nrecovery_invalid TypeRecoveryInvalid\nrecovery_valid TypeRecoveryValid\nrecovery_code_invalid TypeRecoveryCodeInvalid\nrecovery_code_valid TypeRecoveryCodeValid\nverification_invalid TypeVerificationInvalid\nverification_valid TypeVerificationValid\nverification_code_invalid TypeVerificationCodeInvalid\nverification_code_valid TypeVerificationCodeValid\notp TypeOTP\nstub TypeTestStub",
+            "description": "\nrecovery_invalid TypeRecoveryInvalid\nrecovery_valid TypeRecoveryValid\nrecovery_code_invalid TypeRecoveryCodeInvalid\nrecovery_code_valid TypeRecoveryCodeValid\nverification_invalid TypeVerificationInvalid\nverification_valid TypeVerificationValid\nverification_code_invalid TypeVerificationCodeInvalid\nverification_code_valid TypeVerificationCodeValid\notp TypeOTP\nstub TypeTestStub\ncode TypeCode",
             "enum": [
               "recovery_invalid",
               "recovery_valid",
@@ -1250,10 +1250,11 @@
               "verification_code_invalid",
               "verification_code_valid",
               "otp",
-              "stub"
+              "stub",
+              "code"
             ],
             "type": "string",
-            "x-go-enum-desc": "recovery_invalid TypeRecoveryInvalid\nrecovery_valid TypeRecoveryValid\nrecovery_code_invalid TypeRecoveryCodeInvalid\nrecovery_code_valid TypeRecoveryCodeValid\nverification_invalid TypeVerificationInvalid\nverification_valid TypeVerificationValid\nverification_code_invalid TypeVerificationCodeInvalid\nverification_code_valid TypeVerificationCodeValid\notp TypeOTP\nstub TypeTestStub"
+            "x-go-enum-desc": "recovery_invalid TypeRecoveryInvalid\nrecovery_valid TypeRecoveryValid\nrecovery_code_invalid TypeRecoveryCodeInvalid\nrecovery_code_valid TypeRecoveryCodeValid\nverification_invalid TypeVerificationInvalid\nverification_valid TypeVerificationValid\nverification_code_invalid TypeVerificationCodeInvalid\nverification_code_valid TypeVerificationCodeValid\notp TypeOTP\nstub TypeTestStub\ncode TypeCode"
           },
           "type": {
             "$ref": "#/components/schemas/courierMessageType"
@@ -1876,6 +1877,54 @@
         ],
         "title": "State represents the state of this flow. It knows two states:",
         "type": "string"
+      },
+      "submitSelfServiceLoginFlowWithCodeMethod": {
+        "properties": {
+          "code": {
+            "description": "One-time code.",
+            "type": "string"
+          },
+          "csrf_token": {
+            "description": "Sending the anti-csrf token is only required for browser login flows.",
+            "type": "string"
+          },
+          "identifier": {
+            "description": "The user's phone number.",
+            "type": "string"
+          },
+          "method": {
+            "description": "Method should be set to \"code\" when logging in using the code strategy.",
+            "type": "string"
+          }
+        },
+        "title": "submitSelfServiceLoginFlowWithPasswordMethod is used to decode the login form payload.",
+        "type": "object"
+      },
+      "submitSelfServiceRegistrationFlowWithCodeMethodBody": {
+        "description": "SubmitSelfServiceRegistrationFlowWithCodeMethodBody is used to decode the registration form payload\nwhen using the code method.",
+        "properties": {
+          "code": {
+            "description": "Code from the code",
+            "type": "string"
+          },
+          "csrf_token": {
+            "description": "The CSRF Token",
+            "type": "string"
+          },
+          "method": {
+            "description": "Method to use\n\nThis field must be set to `code` when using the code method.",
+            "type": "string"
+          },
+          "traits": {
+            "description": "The identity's traits",
+            "type": "object"
+          }
+        },
+        "required": [
+          "traits",
+          "method"
+        ],
+        "type": "object"
       },
       "successfulNativeLogin": {
         "description": "The Response for Login Flows via API",
@@ -2905,7 +2954,11 @@
             "type": "string"
           },
           "method": {
-            "description": "Method is the recovery method",
+            "description": "Method is the verification method",
+            "type": "string"
+          },
+          "phone": {
+            "description": "Phone to Verify\nformat: tel",
             "type": "string"
           }
         },
@@ -3033,7 +3086,7 @@
         "description": "The state represents the state of the verification flow.\n\nchoose_method: ask the user to choose a method (e.g. recover account via email)\nsent_email: the email has been sent to the user\npassed_challenge: the request was successful and the recovery challenge was passed.",
         "enum": [
           "choose_method",
-          "sent_email",
+          "sent",
           "passed_challenge"
         ],
         "title": "Verification Flow State",

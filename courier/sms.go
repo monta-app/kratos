@@ -4,8 +4,10 @@
 package courier
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/pkg/errors"
@@ -24,7 +26,8 @@ type sendSMSRequestBody struct {
 }
 
 type smsClient struct {
-	RequestConfig json.RawMessage
+	RequestConfig        json.RawMessage
+	RequestStandbyConfig json.RawMessage
 
 	GetTemplateType        func(t SMSTemplate) (TemplateType, error)
 	NewTemplateFromMessage func(d Dependencies, msg Message) (SMSTemplate, error)
@@ -33,6 +36,7 @@ type smsClient struct {
 func newSMS(ctx context.Context, deps Dependencies) *smsClient {
 	return &smsClient{
 		RequestConfig:          deps.CourierConfig().CourierSMSRequestConfig(ctx),
+		RequestStandbyConfig:   deps.CourierConfig().CourierSMSStandbyRequestConfig(ctx),
 		GetTemplateType:        SMSTemplateType,
 		NewTemplateFromMessage: NewSMSTemplateFromMessage,
 	}
@@ -83,14 +87,26 @@ func (c *courier) dispatchSMS(ctx context.Context, msg Message) error {
 		return err
 	}
 
-	builder, err := request.NewBuilder(c.smsClient.RequestConfig, c.deps)
+	requestConfig := c.smsClient.RequestConfig
+	from := c.deps.CourierConfig().CourierSMSFrom(ctx)
+	if smsStandby, ok := tmpl.(SMSStandbySender); ok {
+		requestStandbyConfig := c.smsClient.RequestStandbyConfig
+		if requestStandbyConfig != nil && bytes.Compare(requestStandbyConfig, []byte("{}")) != 0 {
+			if smsStandby.UseStandbySender() {
+				requestConfig = requestStandbyConfig
+				from = c.deps.CourierConfig().CourierSMSStandbyFrom(ctx)
+			}
+		}
+	}
+
+	builder, err := request.NewBuilder(requestConfig, c.deps)
 	if err != nil {
 		return err
 	}
 
 	req, err := builder.BuildRequest(ctx, &sendSMSRequestBody{
 		To:   msg.Recipient,
-		From: c.deps.CourierConfig().CourierSMSFrom(ctx),
+		From: from,
 		Body: body,
 	})
 	if err != nil {
@@ -107,8 +123,19 @@ func (c *courier) dispatchSMS(ctx context.Context, msg Message) error {
 	switch res.StatusCode {
 	case http.StatusOK:
 	case http.StatusCreated:
+	case http.StatusAccepted:
+	case http.StatusBadRequest:
+		b, err := io.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+		return NewMessageRejectedError(res.StatusCode, string(b))
 	default:
-		return errors.New(http.StatusText(res.StatusCode))
+		b, err := io.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+		return errors.Errorf("Status: %s, body: %s", http.StatusText(res.StatusCode), string(b))
 	}
 
 	return nil

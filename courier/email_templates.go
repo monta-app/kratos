@@ -40,6 +40,7 @@ const (
 	TypeVerificationCodeValid   TemplateType = "verification_code_valid"
 	TypeOTP                     TemplateType = "otp"
 	TypeTestStub                TemplateType = "stub"
+	TypeCode                    TemplateType = "code"
 )
 
 func GetEmailTemplateType(t EmailTemplate) (TemplateType, error) {

@@ -1078,6 +1078,9 @@
         "saml": {
           "$ref": "#/definitions/selfServiceAfterRegistrationMethod"
         },
+        "code": {
+          "$ref": "#/definitions/selfServiceAfterRegistrationMethod"
+        },
         "hooks": {
           "$ref": "#/definitions/selfServiceHooks"
         }
@@ -1174,6 +1177,16 @@
           "properties": {
             "email": {
               "$ref": "#/definitions/emailCourierTemplate"
+            },
+            "sms": {
+              "type": "string",
+              "description": "The default template used for sending out sms codes ",
+              "format": "uri",
+              "examples": [
+                "file://path/to/body.html.gotmpl",
+                "https://foo.bar.com/path/to/body.html.gotmpl",
+                "base64://e3sgZGVmaW5lIGFmLVpBIH19CkhhbGxvLAoKSGVyc3RlbCBqb3UgcmVrZW5pbmcgZGV1ciBoaWVyZGllIHNrYWtlbCB0ZSB2b2xnOgp7ey0gZW5kIC19fQoKe3sgZGVmaW5lIGVuLVVTIH19CkhpLAoKcGxlYXNlIHJlY292ZXIgYWNjZXNzIHRvIHlvdXIgYWNjb3VudCBieSBjbGlja2luZyB0aGUgZm9sbG93aW5nIGxpbms6Cnt7LSBlbmQgLX19Cgp7ey0gaWYgZXEgLmxhbmcgImFmLVpBIiAtfX0KCnt7IHRlbXBsYXRlICJhZi1aQSIgLiB9fQoKe3stIGVsc2UgLX19Cgp7eyB0ZW1wbGF0ZSAiZW4tVVMiIH19Cgp7ey0gZW5kIC19fQo8YSBocmVmPSJ7eyAuUmVjb3ZlcnlVUkwgfX0iPnt7IC5SZWNvdmVyeVVSTCB9fTwvYT4"
+              ]
             }
           },
           "required": [
@@ -1222,6 +1235,62 @@
           ]
         }
       }
+    },
+    "courierRequestConfig": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "title": "HTTP address of API endpoint",
+          "description": "This URL will be used to connect to the SMS provider.",
+          "examples": [
+            "https://api.twillio.com/sms/send"
+          ],
+          "type": "string",
+          "pattern": "^https?:\\/\\/.*"
+        },
+        "method": {
+          "type": "string",
+          "description": "The HTTP method to use (GET, POST, etc)."
+        },
+        "headers": {
+          "type": "object",
+          "description": "The HTTP headers that must be applied to request",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "body": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^(http|https|file|base64)://",
+          "description": "URI pointing to the jsonnet template used for payload generation. Only used for those HTTP methods, which support HTTP body payloads",
+          "examples": [
+            "file:///path/to/body.jsonnet",
+            "file://./body.jsonnet",
+            "base64://ZnVuY3Rpb24oY3R4KSB7CiAgaWRlbnRpdHlfaWQ6IGlmIGN0eFsiaWRlbnRpdHkiXSAhPSBudWxsIHRoZW4gY3R4LmlkZW50aXR5LmlkLAp9=",
+            "https://oryapis.com/default_body.jsonnet"
+          ]
+        },
+        "auth": {
+          "type": "object",
+          "title": "Auth mechanisms",
+          "description": "Define which auth mechanism to use for auth with the SMS provider",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/webHookAuthApiKeyProperties"
+            },
+            {
+              "$ref": "#/definitions/webHookAuthBasicAuthProperties"
+            }
+          ]
+        },
+        "additionalProperties": false
+      },
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "method"
+      ]
     }
   },
   "properties": {
@@ -1587,6 +1656,41 @@
                         "1m",
                         "1s"
                       ]
+                    },
+                    "test_numbers": {
+                      "type": "array",
+                      "description": "Phone numbers for test accounts",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "max_attempts": {
+                      "type": "integer",
+                      "title": "Maximum attempts to enter code",
+                      "default": 3
+                    },
+                    "sms_spam_protection": {
+                      "title": "SMS spam protection",
+                      "description": "Blocks from sending too many messages to the same number or to a range of numbers",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean",
+                          "title": "Enables spam protection",
+                          "default": false
+                        },
+                        "max_single_number": {
+                          "type": "integer",
+                          "title": "How many messages are allowed to be sent to a number per week",
+                          "default": 50
+                        },
+                        "max_numbers_range": {
+                          "type": "integer",
+                          "title": "How many messages are allowed to be sent to a numbers range per week",
+                          "default": 100
+                        }
+                      }
                     }
                   }
                 }
@@ -2020,60 +2124,23 @@
               "default": "Ory Kratos"
             },
             "request_config": {
+              "$ref": "#/definitions/courierRequestConfig"
+            },
+            "standby": {
+              "title": "SMS standby sender configuration",
+              "description": "Configures outgoing sms messages using HTTP protocol with standby SMS provider",
               "type": "object",
               "properties": {
-                "url": {
-                  "title": "HTTP address of API endpoint",
-                  "description": "This URL will be used to connect to the SMS provider.",
-                  "examples": [
-                    "https://api.twillio.com/sms/send"
-                  ],
+                "from": {
+                  "title": "Standby SMS Sender Address",
+                  "description": "The recipient of a sms will see this as the sender address.",
                   "type": "string",
-                  "pattern": "^https?:\\/\\/.*"
+                  "default": "Ory Kratos"
                 },
-                "method": {
-                  "type": "string",
-                  "description": "The HTTP method to use (GET, POST, etc)."
-                },
-                "headers": {
-                  "type": "object",
-                  "description": "The HTTP headers that must be applied to request",
-                  "additionalProperties": {
-                    "type": "string"
-                  }
-                },
-                "body": {
-                  "type": "string",
-                  "format": "uri",
-                  "pattern": "^(http|https|file|base64)://",
-                  "description": "URI pointing to the jsonnet template used for payload generation. Only used for those HTTP methods, which support HTTP body payloads",
-                  "examples": [
-                    "file:///path/to/body.jsonnet",
-                    "file://./body.jsonnet",
-                    "base64://ZnVuY3Rpb24oY3R4KSB7CiAgaWRlbnRpdHlfaWQ6IGlmIGN0eFsiaWRlbnRpdHkiXSAhPSBudWxsIHRoZW4gY3R4LmlkZW50aXR5LmlkLAp9=",
-                    "https://oryapis.com/default_body.jsonnet"
-                  ]
-                },
-                "auth": {
-                  "type": "object",
-                  "title": "Auth mechanisms",
-                  "description": "Define which auth mechanism to use for auth with the SMS provider",
-                  "oneOf": [
-                    {
-                      "$ref": "#/definitions/webHookAuthApiKeyProperties"
-                    },
-                    {
-                      "$ref": "#/definitions/webHookAuthBasicAuthProperties"
-                    }
-                  ]
-                },
-                "additionalProperties": false
-              },
-              "required": [
-                "url",
-                "method"
-              ],
-              "additionalProperties": false
+                "request_config": {
+                  "$ref": "#/definitions/courierRequestConfig"
+                }
+              }
             }
           },
           "additionalProperties": false

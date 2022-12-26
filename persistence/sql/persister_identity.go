@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/ory/kratos/credentialmigrate"
 
@@ -69,6 +70,16 @@ func (p *Persister) normalizeIdentifier(ct identity.CredentialsType, match strin
 	case identity.CredentialsTypeOIDC:
 		// OIDC credentials are case-sensitive
 		return match
+	case identity.CredentialsTypeCode:
+		return strings.Map(
+			func(r rune) rune {
+				if r == '+' || unicode.IsDigit(r) {
+					return r
+				}
+				return -1
+			},
+			match,
+		)
 	case identity.CredentialsTypePassword:
 		fallthrough
 	case identity.CredentialsTypeWebAuthn:
