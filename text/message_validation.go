@@ -194,3 +194,12 @@ func NewErrorValidationSMSSpam() *Message {
 		Context: context(nil),
 	}
 }
+
+func NewErrorValidationInvalidPin() *Message {
+	return &Message{
+		ID:      ErrorValidationInvalidPin,
+		Text:    "The provided pin code is invalid.",
+		Type:    Error,
+		Context: context(nil),
+	}
+}

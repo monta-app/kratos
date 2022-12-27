@@ -23,6 +23,7 @@ const (
 	InfoSelfServiceLoginContinueWebAuthn                         // 1010011
 	InfoSelfServiceLoginWebAuthnPasswordless                     // 1010012
 	InfoSelfServiceLoginContinue                                 // 1010013
+	InfoSelfServiceLoginPinLabel                                 // 1010014
 )
 
 const (
@@ -81,7 +82,8 @@ const (
 	InfoNodeLabelEmail                             // 1070007
 	InfoNodeLabelResendOTP                         // 1070008
 	InfoNodeLabelContinue                          // 1070009
-	InfoNodeLabelPhone                             // 1070008
+	InfoNodeLabelPhone                             // 1070010
+	InfoNodeLabelInputPin                          // 1070011
 )
 
 const (
@@ -115,6 +117,7 @@ const (
 	ErrorValidationInvalidCode
 	ErrorValidationCodeSent
 	ErrorValidationCodeSMSSpam
+	ErrorValidationInvalidPin
 )
 
 const (

@@ -71,6 +71,7 @@ const (
 	CredentialsTypeWebAuthn CredentialsType = "webauthn"
 	CredentialsTypeSAML     CredentialsType = "saml"
 	CredentialsTypeCode     CredentialsType = "code"
+	CredentialsTypePin      CredentialsType = "pin"
 )
 
 const (

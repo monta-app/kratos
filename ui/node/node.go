@@ -49,6 +49,7 @@ const (
 	TOTPGroup          UiNodeGroup = "totp"
 	LookupGroup        UiNodeGroup = "lookup_secret"
 	WebAuthnGroup      UiNodeGroup = "webauthn"
+	PinGroup           UiNodeGroup = "pin"
 )
 
 func (g UiNodeGroup) String() string {

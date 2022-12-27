@@ -138,6 +138,9 @@ func init() {
 		"NewErrorValidationOIDCUserNotFound":                      text.NewErrorValidationOIDCUserNotFound(),
 		"NewInfoNodeInputPhone":                                   text.NewInfoNodeInputPhone(),
 		"NewVerificationPhoneSent":                                text.NewVerificationPhoneSent(),
+		"NewErrorValidationInvalidPin":                            text.NewErrorValidationInvalidPin(),
+		"NewInfoLoginPinLabel":                                    text.NewInfoLoginPinLabel(),
+		"NewInfoNodeInputPin":                                     text.NewInfoNodeInputPin(),
 	}
 }
 

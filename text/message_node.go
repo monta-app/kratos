@@ -82,3 +82,11 @@ func NewInfoNodeInputPhone() *Message {
 		Type: Info,
 	}
 }
+
+func NewInfoNodeInputPin() *Message {
+	return &Message{
+		ID:   InfoNodeLabelInputPin,
+		Text: "Pin",
+		Type: Info,
+	}
+}
