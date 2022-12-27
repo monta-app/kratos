@@ -111,6 +111,7 @@ const (
 	ErrorValidationNoLookup
 	ErrorValidationSuchNoWebAuthnUser
 	ErrorValidationLookupInvalid
+	ErrorValidationOIDCUserNotFound
 	ErrorValidationInvalidCode
 	ErrorValidationCodeSent
 	ErrorValidationCodeSMSSpam

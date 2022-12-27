@@ -8,10 +8,9 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/ory/kratos/driver/config"
-
 	"github.com/pkg/errors"
 
+	"github.com/ory/kratos/driver/config"
 	"github.com/ory/kratos/ui/container"
 
 	"github.com/ory/herodot"

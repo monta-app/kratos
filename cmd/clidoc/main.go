@@ -135,6 +135,7 @@ func init() {
 		"NewInfoSelfServiceContinueLoginWebAuthn":                 text.NewInfoSelfServiceContinueLoginWebAuthn(),
 		"NewInfoSelfServiceLoginContinue":                         text.NewInfoSelfServiceLoginContinue(),
 		"NewErrorValidationSuchNoWebAuthnUser":                    text.NewErrorValidationSuchNoWebAuthnUser(),
+		"NewErrorValidationOIDCUserNotFound":                      text.NewErrorValidationOIDCUserNotFound(),
 		"NewInfoNodeInputPhone":                                   text.NewInfoNodeInputPhone(),
 		"NewVerificationPhoneSent":                                text.NewVerificationPhoneSent(),
 	}

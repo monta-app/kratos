@@ -244,7 +244,11 @@ func (e *HookExecutor) PostLoginHook(w http.ResponseWriter, r *http.Request, g n
 	}
 	if isWebView {
 		response := &APIFlowResponse{Session: s.Declassify(), Token: s.Token}
-		if required, _ := e.requiresAAL2(r, s, a); required {
+		required, err := e.requiresAAL2(r, s, a)
+		if err != nil {
+			return err
+		}
+		if required {
 			// If AAL is not satisfied, we omit the identity to preserve the user's privacy in case of a phishing attack.
 			response.Session.Identity = nil
 		}

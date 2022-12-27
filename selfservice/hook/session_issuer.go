@@ -9,10 +9,9 @@ import (
 	"path"
 	"time"
 
-	"github.com/ory/kratos/driver/config"
-
 	"github.com/pkg/errors"
 
+	"github.com/ory/kratos/driver/config"
 	"github.com/ory/kratos/selfservice/flow"
 	"github.com/ory/kratos/selfservice/flow/registration"
 	"github.com/ory/kratos/session"
