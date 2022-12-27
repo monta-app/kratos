@@ -675,13 +675,13 @@ There are three types of tests you can run:
 Short tests run fairly quickly. You can either test all of the code at once
 
 ```shell script
-go test -short -tags sqlite ./...
+go test -short -tags sqlite,json1 ./...
 ```
 
 or test just a specific module:
 
 ```shell script
-cd client; go test -tags sqlite -short .
+cd client; go test -tags sqlite,json1 -short .
 ```
 
 ##### Regular Tests
@@ -715,10 +715,10 @@ export TEST_DATABASE_COCKROACHDB='cockroach://root@127.0.0.1:3446/defaultdb?sslm
 Then you can run `go test` as often as you'd like:
 
 ```shell script
-go test -tags sqlite ./...
+go test -tags sqlite,json1 ./...
 
 # or in a module:
-cd client; go test  -tags sqlite  .
+cd client; go test  -tags sqlite,json1  .
 ```
 
 ##### Updating Test Fixtures
