@@ -21,6 +21,7 @@ type Provider interface {
 
 type APIFlowProvider interface {
 	ClaimsFromIDToken(ctx context.Context, rawIDToken string) (*Claims, error)
+	ClaimsFromAccessToken(ctx context.Context, accessToken string) (*Claims, error)
 }
 
 type TokenExchanger interface {

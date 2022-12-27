@@ -217,6 +217,10 @@ type updateSettingsFlowWithOidcMethod struct {
 	//
 	// required: false
 	IDToken string `json:"id_token"`
+	// Only used in API-type flows, when an access token has been received by mobile app directly from oidc provider.
+	//
+	// required: false
+	AccessToken string `json:"access_token"`
 }
 
 func (p *updateSettingsFlowWithOidcMethod) GetFlowID() uuid.UUID {
@@ -284,6 +288,12 @@ func (s *Strategy) Settings(w http.ResponseWriter, r *http.Request, f *settings.
 				if len(p.IDToken) > 0 {
 					token = token.WithExtra(map[string]string{"id_token": p.IDToken})
 					claims, err = apiFlowProvider.ClaimsFromIDToken(r.Context(), p.IDToken)
+					if err != nil {
+						return nil, errors.WithStack(err)
+					}
+				} else if len(p.AccessToken) > 0 {
+					token.AccessToken = p.AccessToken
+					claims, err = apiFlowProvider.ClaimsFromAccessToken(r.Context(), p.AccessToken)
 					if err != nil {
 						return nil, errors.WithStack(err)
 					}

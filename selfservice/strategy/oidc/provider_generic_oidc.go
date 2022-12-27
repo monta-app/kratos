@@ -146,3 +146,32 @@ func (g *ProviderGenericOIDC) ClaimsFromIDToken(ctx context.Context, rawIDToken 
 
 	return g.verifyAndDecodeClaimsWithProvider(ctx, p, rawIDToken)
 }
+
+func (g *ProviderGenericOIDC) ClaimsFromAccessToken(ctx context.Context, accessToken string) (*Claims, error) {
+	p, err := g.provider(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	token := tokenAccessor{token: oauth2.Token{AccessToken: accessToken}}
+
+	userinfo, err := p.UserInfo(ctx, &token)
+	if err != nil {
+		return nil, err
+	}
+
+	var claims Claims
+	if err := userinfo.Claims(&claims); err != nil {
+		return nil, errors.WithStack(herodot.ErrBadRequest.WithReasonf("%s", err))
+	}
+
+	return &claims, nil
+}
+
+type tokenAccessor struct {
+	token oauth2.Token
+}
+
+func (a *tokenAccessor) Token() (*oauth2.Token, error) {
+	return &a.token, nil
+}
