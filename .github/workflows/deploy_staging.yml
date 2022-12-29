@@ -74,7 +74,7 @@ jobs:
       - name: Check out my other private repo
         uses: actions/checkout@master
         with:
-          repository: monta-app/manifests
+          repository: monta-app/kube-manifests
           path: 'manifests'
           token: ${{ secrets.PAT }}
 
@@ -84,7 +84,7 @@ jobs:
           kustomize-version: "4.4.0"
 
       - name: Update Kubernetes resources
-        working-directory: ./manifests/apps/kratos/staging
+        working-directory: ./manifests/apps/kratos/staging/app
         run: |
           kustomize edit set image image=${{ steps.login-ecr.outputs.registry }}\/kratos-staging:${{ github.sha }}
 
@@ -100,4 +100,4 @@ jobs:
         with:
           github_token: ${{ secrets.PAT }}
           directory: './manifests'
-          repository: 'monta-app/manifests'
+          repository: 'monta-app/kube-manifests'
