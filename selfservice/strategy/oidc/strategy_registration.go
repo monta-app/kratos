@@ -83,6 +83,10 @@ type UpdateRegistrationFlowWithOidcMethod struct {
 	//
 	// required: false
 	IDToken string `json:"id_token"`
+	// Only used in API-type flows, when an access token has been received by mobile app directly from oidc provider.
+	//
+	// required: false
+	AccessToken string `json:"access_token"`
 }
 
 func (s *Strategy) newLinkDecoder(p interface{}, r *http.Request) error {
@@ -117,6 +121,7 @@ func (s *Strategy) newLinkDecoder(p interface{}, r *http.Request) error {
 func (s *Strategy) Register(w http.ResponseWriter, r *http.Request, f *registration.Flow, i *identity.Identity) (err error) {
 	var pid = ""
 	var idToken = ""
+	var accessToken = ""
 
 	var p UpdateRegistrationFlowWithOidcMethod
 	if f.Type == flow.TypeBrowser {
@@ -138,6 +143,7 @@ func (s *Strategy) Register(w http.ResponseWriter, r *http.Request, f *registrat
 		}
 
 		idToken = p.IDToken
+		accessToken = p.AccessToken
 		pid = p.Provider
 	}
 
@@ -193,6 +199,11 @@ func (s *Strategy) Register(w http.ResponseWriter, r *http.Request, f *registrat
 		if apiFlowProvider, ok := provider.(APIFlowProvider); ok {
 			if len(idToken) > 0 {
 				claims, err = apiFlowProvider.ClaimsFromIDToken(r.Context(), idToken)
+				if err != nil {
+					return errors.WithStack(err)
+				}
+			} else if len(accessToken) > 0 {
+				claims, err = apiFlowProvider.ClaimsFromAccessToken(r.Context(), accessToken)
 				if err != nil {
 					return errors.WithStack(err)
 				}
