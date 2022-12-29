@@ -102,6 +102,10 @@ func (p *Persister) UseRecoveryToken(ctx context.Context, fID uuid.UUID, token s
 		}
 		rt.RecoveryAddress = &ra
 
+		//Temp fix:  https://montaapp.atlassian.net/browse/CORE-558
+		if time.Now().Before(rt.CreatedAt.Add(time.Minute)) {
+			return nil
+		}
 		/* #nosec G201 TableName is static */
 		return tx.RawQuery(fmt.Sprintf("UPDATE %s SET used=true, used_at=? WHERE id=? AND nid = ?", rt.TableName(ctx)), time.Now().UTC(), rt.ID, nid).Exec()
 	})); err != nil {
