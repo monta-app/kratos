@@ -1,20 +1,28 @@
-FROM golang:1.16-alpine AS builder
+# syntax = docker/dockerfile:1-experimental
+FROM golang:1.19-alpine3.16 AS builder
 
-RUN apk -U --no-cache add build-base git gcc bash
+RUN apk --update upgrade && apk --no-cache --update-cache --upgrade --latest add ca-certificates build-base gcc
 
 WORKDIR /go/src/github.com/ory/kratos
 
 ADD go.mod go.mod
 ADD go.sum go.sum
-ADD internal/httpclient/go.* internal/httpclient/
+#ADD internal/httpclient/go.* internal/httpclient/
+ADD internal/client-go/go.* internal/client-go/
+
+ENV GO111MODULE on
+ENV CGO_ENABLED 1
+ENV CGO_CPPFLAGS -DSQLITE_DEFAULT_FILE_PERMISSIONS=0600
 
 RUN go mod download
 
 ADD . .
 
-RUN go build -o /usr/bin/kratos
+RUN --mount=type=cache,target=/root/.cache/go-build go build -tags sqlite,json1 \
+    -ldflags="-X 'github.com/ory/kratos/driver/config.Version=${VERSION}' -X 'github.com/ory/kratos/driver/config.Date=${BUILD_DATE}' -X 'github.com/ory/kratos/driver/config.Commit=${COMMIT}'" \
+    -o /usr/bin/kratos
 
-FROM alpine:3.12
+FROM alpine:3.16
 
 RUN addgroup -S ory; \
     adduser -S ory -G ory -D -u 10000 -h /home/ory -s /bin/nologin; \
