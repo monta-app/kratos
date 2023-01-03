@@ -5,6 +5,7 @@ package code
 
 import (
 	"context"
+	"github.com/ory/jsonschema/v3"
 	"net/http"
 	"net/url"
 	"time"
@@ -134,7 +135,16 @@ func (body *updateVerificationFlowWithCodeMethodBody) getMethod() string {
 func (s *Strategy) Verify(w http.ResponseWriter, r *http.Request, f *verification.Flow) (err error) {
 	body, err := s.decodeVerification(r)
 	if err != nil {
+		if e := new(jsonschema.ValidationError); errors.As(err, &e) {
+			if e.InstancePtr == "#/method" {
+				return errors.WithStack(flow.ErrStrategyNotResponsible)
+			}
+		}
 		return s.handleVerificationError(w, r, nil, body, err)
+	}
+
+	if len(body.Method) > 0 && body.Method != s.VerificationStrategyID() {
+		return errors.WithStack(flow.ErrStrategyNotResponsible)
 	}
 
 	if err := flow.MethodEnabledAndAllowed(r.Context(), s.VerificationStrategyID(), body.getMethod(), s.deps); err != nil {

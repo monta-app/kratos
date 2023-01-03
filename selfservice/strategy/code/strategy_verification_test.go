@@ -132,7 +132,7 @@ func TestVerification(t *testing.T) {
 
 		body := ioutilx.MustReadAll(res.Body)
 		require.NoError(t, res.Body.Close())
-		testhelpers.AssertFieldMessage(t, body, "method", `value must be one of "code", "link"`)
+		assert.Equal(t, "Could not find a strategy to verify your account with. Did you fill out the form correctly?", gjson.GetBytes(body, "ui.messages.0.text").String(), "%s", body)
 	})
 
 	t.Run("description=should require an email to be sent", func(t *testing.T) {
