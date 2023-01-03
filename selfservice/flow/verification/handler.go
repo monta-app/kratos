@@ -400,10 +400,11 @@ func (h *Handler) updateVerificationFlow(w http.ResponseWriter, r *http.Request,
 	var g node.UiNodeGroup
 	var found bool
 	for _, ss := range h.d.AllVerificationStrategies() {
+		// Has commented the following out because phones should be verified with code regardless of the 'verification.use' setting
 		// If an active strategy is set, but it does not match the current strategy, that strategy is not responsible anyways.
-		if f.Active.String() != "" && f.Active.String() != ss.VerificationStrategyID() {
-			continue
-		}
+		//if f.Active.String() != "" && f.Active.String() != ss.VerificationStrategyID() {
+		//	continue
+		//}
 
 		err := ss.Verify(w, r, f)
 		if errors.Is(err, flow.ErrStrategyNotResponsible) {

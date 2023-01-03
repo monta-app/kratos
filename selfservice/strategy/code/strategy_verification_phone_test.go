@@ -24,7 +24,6 @@ import (
 	"github.com/ory/kratos/selfservice/flow/recovery"
 	"github.com/ory/kratos/selfservice/flow/verification"
 	"github.com/ory/kratos/text"
-	"github.com/ory/kratos/ui/node"
 	"github.com/ory/kratos/x"
 	"github.com/ory/x/assertx"
 )
@@ -76,55 +75,63 @@ func TestPhoneVerification(t *testing.T) {
 	}
 
 	t.Run("description=should verify phone", func(t *testing.T) {
+		// phones should be verified with code regardless of the 'verification.use' setting
+		for _, verificationUse := range []string{"code", "link"} {
+			t.Run("verification.use="+verificationUse, func(t *testing.T) {
+				conf.MustSet(ctx, config.ViperKeySelfServiceVerificationUse, verificationUse)
 
-		//t.Run("type=browser", func(t *testing.T) {
-		//	check(t, expectSuccess(t, nil, false, false, values))
-		//})
-		//
-		//t.Run("type=spa", func(t *testing.T) {
-		//	check(t, expectSuccess(t, nil, false, true, values))
-		//})
+				//t.Run("type=browser", func(t *testing.T) {
+				//	check(t, expectSuccess(t, nil, false, false, values))
+				//})
+				//
+				//t.Run("type=spa", func(t *testing.T) {
+				//	check(t, expectSuccess(t, nil, false, true, values))
+				//})
 
-		t.Run("type=api", func(t *testing.T) {
-			f := testhelpers.InitializeVerificationFlowViaAPI(t, nil, public)
-			body := expectSuccess(t, nil, true, false, f,
-				func(v url.Values) {
-					v.Set("phone", verificationPhone)
+				t.Run("type=api", func(t *testing.T) {
+					f := testhelpers.InitializeVerificationFlowViaAPI(t, nil, public)
+					body := expectSuccess(t, nil, true, false, f,
+						func(v url.Values) {
+							v.Set("method", "code")
+							v.Set("phone", verificationPhone)
+						})
+					assert.EqualValues(t, verificationUse, gjson.Get(body, "active").String(), "%s", body)
+					assert.EqualValues(t, verificationPhone,
+						gjson.Get(body, "ui.nodes.#(attributes.name==phone).attributes.value").String(), "%s", body)
+					assertx.EqualAsJSON(t, text.NewVerificationPhoneSent(), json.RawMessage(gjson.Get(body, "ui.messages.0").Raw))
+
+					message := testhelpers.CourierExpectMessage(t, reg, verificationPhone, "")
+
+					var smsModel sms.CodeMessageModel
+					err := json.Unmarshal(message.TemplateData, &smsModel)
+					assert.NoError(t, err)
+
+					body = expectSuccess(t, nil, true, false, f,
+						func(v url.Values) {
+							v.Set("method", "code")
+							v.Set("phone", verificationPhone)
+							v.Set("code", smsModel.Code)
+						})
+					assert.EqualValues(t, verificationUse, gjson.Get(body, "active").String(), "%s", body)
+					assert.EqualValues(t, verificationPhone,
+						gjson.Get(body, "ui.nodes.#(attributes.name==phone).attributes.value").String(), "%s", body)
+
+					assert.EqualValues(t, "passed_challenge", gjson.Get(body, "state").String())
+					assert.EqualValues(t, text.NewInfoSelfServicePhoneVerificationSuccessful().Text,
+						gjson.Get(body, "ui.messages.0.text").String())
+					id, err := reg.PrivilegedIdentityPool().GetIdentityConfidential(ctx, identityToVerify.ID)
+					require.NoError(t, err)
+					require.Len(t, id.VerifiableAddresses, 1)
+
+					address := id.VerifiableAddresses[0]
+					assert.EqualValues(t, verificationPhone, address.Value)
+					assert.True(t, address.Verified)
+					assert.EqualValues(t, identity.VerifiableAddressStatusCompleted, address.Status)
+					assert.True(t, time.Time(*address.VerifiedAt).Add(time.Second*5).After(time.Now()))
+
 				})
-			assert.EqualValues(t, string(node.CodeGroup), gjson.Get(body, "active").String(), "%s", body)
-			assert.EqualValues(t, verificationPhone,
-				gjson.Get(body, "ui.nodes.#(attributes.name==phone).attributes.value").String(), "%s", body)
-			assertx.EqualAsJSON(t, text.NewVerificationPhoneSent(), json.RawMessage(gjson.Get(body, "ui.messages.0").Raw))
-
-			message := testhelpers.CourierExpectMessage(t, reg, verificationPhone, "")
-
-			var smsModel sms.CodeMessageModel
-			err := json.Unmarshal(message.TemplateData, &smsModel)
-			assert.NoError(t, err)
-
-			body = expectSuccess(t, nil, true, false, f,
-				func(v url.Values) {
-					v.Set("phone", verificationPhone)
-					v.Set("code", smsModel.Code)
-				})
-			assert.EqualValues(t, string(node.CodeGroup), gjson.Get(body, "active").String(), "%s", body)
-			assert.EqualValues(t, verificationPhone,
-				gjson.Get(body, "ui.nodes.#(attributes.name==phone).attributes.value").String(), "%s", body)
-
-			assert.EqualValues(t, "passed_challenge", gjson.Get(body, "state").String())
-			assert.EqualValues(t, text.NewInfoSelfServicePhoneVerificationSuccessful().Text,
-				gjson.Get(body, "ui.messages.0.text").String())
-			id, err := reg.PrivilegedIdentityPool().GetIdentityConfidential(ctx, identityToVerify.ID)
-			require.NoError(t, err)
-			require.Len(t, id.VerifiableAddresses, 1)
-
-			address := id.VerifiableAddresses[0]
-			assert.EqualValues(t, verificationPhone, address.Value)
-			assert.True(t, address.Verified)
-			assert.EqualValues(t, identity.VerifiableAddressStatusCompleted, address.Status)
-			assert.True(t, time.Time(*address.VerifiedAt).Add(time.Second*5).After(time.Now()))
-
-		})
+			})
+		}
 	})
 
 }
