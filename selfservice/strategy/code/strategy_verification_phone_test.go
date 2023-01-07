@@ -74,19 +74,38 @@ func TestPhoneVerification(t *testing.T) {
 		return expect(t, hc, isAPI, isSPA, values, http.StatusOK, f)
 	}
 
+	t.Run("description=should not be able to use an invalid code", func(t *testing.T) {
+		// phones should be verified with code regardless of the 'verification.use' setting
+		for _, verificationUse := range []string{"code", "link"} {
+			t.Run("verification.use="+verificationUse, func(t *testing.T) {
+				t.Run("type=api", func(t *testing.T) {
+					f := testhelpers.InitializeVerificationFlowViaAPI(t, nil, public)
+					body := expectSuccess(t, nil, true, false, f,
+						func(v url.Values) {
+							v.Set("method", "code")
+							v.Set("phone", verificationPhone)
+						})
+					assertx.EqualAsJSON(t, text.NewVerificationPhoneSent(), json.RawMessage(gjson.Get(body, "ui.messages.0").Raw))
+
+					body = expect(t, nil, true, false,
+						func(v url.Values) {
+							v.Set("method", "code")
+							v.Set("phone", verificationPhone)
+							v.Set("code", "invalid_code")
+						},
+						http.StatusBadRequest, f)
+					assertx.EqualAsJSON(t, text.NewErrorValidationInvalidCode(),
+						json.RawMessage(gjson.Get(body, "ui.messages.0").Raw), "%s", body)
+				})
+			})
+		}
+	})
+
 	t.Run("description=should verify phone", func(t *testing.T) {
 		// phones should be verified with code regardless of the 'verification.use' setting
 		for _, verificationUse := range []string{"code", "link"} {
 			t.Run("verification.use="+verificationUse, func(t *testing.T) {
 				conf.MustSet(ctx, config.ViperKeySelfServiceVerificationUse, verificationUse)
-
-				//t.Run("type=browser", func(t *testing.T) {
-				//	check(t, expectSuccess(t, nil, false, false, values))
-				//})
-				//
-				//t.Run("type=spa", func(t *testing.T) {
-				//	check(t, expectSuccess(t, nil, false, true, values))
-				//})
 
 				t.Run("type=api", func(t *testing.T) {
 					f := testhelpers.InitializeVerificationFlowViaAPI(t, nil, public)

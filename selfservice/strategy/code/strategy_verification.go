@@ -335,7 +335,8 @@ func (s *Strategy) verificationUseCode(w http.ResponseWriter, r *http.Request, b
 	} else {
 		code, err := s.deps.CodeAuthenticationService().VerifyCode(r.Context(), f, body.Code)
 		if err != nil {
-			return s.retryVerificationFlowWithError(w, r, f.Type, err)
+			f.UI.Messages.Clear()
+			return err
 		}
 
 		f.UI.Messages.Clear()
