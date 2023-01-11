@@ -36,6 +36,7 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
+          DOCKER_BUILDKIT: "1"
         run: |
           ECR_IMAGE_URL=$ECR_REGISTRY/kratos-production
           docker build -f .docker/Dockerfile -t $ECR_IMAGE_URL:$IMAGE_TAG .
@@ -75,7 +76,7 @@ jobs:
         uses: actions/checkout@master
         with:
           repository: monta-app/kube-manifests
-          path: 'kube-manifests'
+          path: 'manifests'
           token: ${{ secrets.PAT }}
 
       - name: Setup Kustomize
@@ -84,12 +85,12 @@ jobs:
           kustomize-version: "4.4.0"
 
       - name: Update Kubernetes resources
-        working-directory: ./kube-manifests/apps/kratos/production/app
+        working-directory: ./manifests/apps/kratos/production/app
         run: |
           kustomize edit set image image=${{ steps.login-ecr.outputs.registry }}\/kratos-production:${{ github.sha }}
 
       - name: Commit
-        working-directory: ./kube-manifests
+        working-directory: ./manifests
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
@@ -99,5 +100,5 @@ jobs:
         uses: ad-m/github-push-action@master
         with:
           github_token: ${{ secrets.PAT }}
-          directory: './kube-manifests'
+          directory: './manifests'
           repository: 'monta-app/kube-manifests'
