@@ -36,6 +36,7 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
+          DOCKER_BUILDKIT: "1"
         run: |
           ECR_IMAGE_URL=$ECR_REGISTRY/kratos-staging
           docker build -f .docker/Dockerfile -t $ECR_IMAGE_URL:$IMAGE_TAG .
