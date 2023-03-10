@@ -6,6 +6,11 @@ on:
     branches:
       - main
 
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: read # This is required for actions/checkout
+  actions: read # This is required for 8398a7/action-slack
+
 jobs:
   build:
     name: Build
@@ -13,24 +18,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.PRODUCTION_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.PRODUCTION_AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: arn:aws:iam::${{ secrets.PRODUCTION_AWS_ACCOUNT_ID }}:role/ecr-put-image
+          role-session-name: push-new-image-to-krato-production
           aws-region: eu-west-1
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Get AWS ECR credentials
-        id: ecr-credentials
-        run: |
-          echo "::set-output name=username::AWS"
-          echo "::set-output name=password::`aws ecr get-login-password`"
 
       - name: Docker build
         env:
@@ -61,17 +60,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.PRODUCTION_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.PRODUCTION_AWS_SECRET_ACCESS_KEY }}
-          aws-region: eu-west-1
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-
       - name: Check out my other private repo
         uses: actions/checkout@master
         with:
