@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gofrs/uuid"
 	"github.com/ory/kratos/driver/config"
@@ -13,6 +14,7 @@ import (
 	"github.com/ory/kratos/ui/container"
 	"github.com/ory/kratos/x"
 	"github.com/ory/x/assertx"
+	"github.com/ory/x/sqlcon"
 	"github.com/ory/x/urlx"
 	"github.com/tidwall/gjson"
 	"golang.org/x/net/html"
@@ -88,6 +90,12 @@ func TestStrategy(t *testing.T) {
 	var ai = func(t *testing.T, res *http.Response, body []byte) {
 		assert.Contains(t, res.Request.URL.String(), returnTS.URL)
 		assert.Equal(t, email, gjson.GetBytes(body, "identity.traits.email").String(), "%s", body)
+	}
+
+	// assert ui error (redirect to login/registration ui endpoint)
+	var aue = func(t *testing.T, res *http.Response, body []byte, reason string) {
+		require.Contains(t, res.Request.URL.String(), uiTS.URL, "status: %d, body: %s", res.StatusCode, body)
+		assert.Contains(t, gjson.GetBytes(body, "ui.messages.0.text").String(), reason, "%s", body)
 	}
 
 	var newLoginFlow = func(t *testing.T, requestURL string, returnToURL string, exp time.Duration) (f *login.Flow) {
@@ -270,6 +278,63 @@ func TestStrategy(t *testing.T) {
 			assert.NoError(t, err)
 			assert.True(t, strings.HasSuffix(location.Path, "/success"), "%v", res)
 			assert.Equal(t, email, gjson.GetBytes(body, "session.identity.traits.email").String(), "%s", body)
+		})
+	})
+
+	t.Run("case=should fail to register if email is already being used by password credentials", func(t *testing.T) {
+		email = "user1@example.com"
+
+		t.Run("case=create password identity", func(t *testing.T) {
+			i, _, err := reg.PrivilegedIdentityPool().FindByCredentialsIdentifier(
+				context.Background(),
+				identity.CredentialsTypePassword,
+				email,
+			)
+			if err != nil && !errors.Is(err, sqlcon.ErrNoRows) {
+				assert.NoError(t, err)
+			}
+			if i != nil {
+				err := reg.PrivilegedIdentityPool().DeleteIdentity(context.Background(), i.ID)
+				assert.NoError(t, err)
+			}
+			i = identity.NewIdentity(config.DefaultIdentityTraitsSchemaID)
+			i.SetCredentials(identity.CredentialsTypePassword, identity.Credentials{
+				Identifiers: []string{email},
+			})
+			i.Traits = identity.Traits(`{"email":"` + email + `"}`)
+
+			require.NoError(t, reg.PrivilegedIdentityPool().CreateIdentity(context.Background(), i))
+		})
+
+		t.Run("case=should fail login", func(t *testing.T) {
+			f := newLoginFlow(t, returnTS.URL, "", time.Minute)
+			action := afv(t, f.ID, providerId)
+
+			client := NewTestClient(t, nil)
+
+			//Post to kratos to initiate SAML flow
+			res, body := makeRequestWithClient(t, action, url.Values{
+				"method":       []string{"saml"},
+				"samlProvider": []string{providerId},
+			}, client, 200)
+
+			//Post to identity provider UI
+			res, body = makeRequestWithClient(t, res.Request.URL.String(), url.Values{
+				"username": []string{"user1"},
+				"password": []string{"user1pass"},
+			}, client, 200)
+
+			//Extract SAML response from body returned by identity provider
+			SAMLResponse := getValueByName(body, "SAMLResponse")
+			relayState := getValueByName(body, "RelayState")
+
+			//Post SAML response to kratos
+			res, body = makeRequestWithClient(t, urlAcs, url.Values{
+				"SAMLResponse": []string{SAMLResponse},
+				"RelayState":   []string{relayState},
+			}, client, 200)
+
+			aue(t, res, body, "An account with the same identifier (email, phone, username, ...) exists already.")
 		})
 	})
 }

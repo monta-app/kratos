@@ -267,7 +267,7 @@ func (s *Strategy) handleCallback(w http.ResponseWriter, r *http.Request, ps htt
 	req, _, err := s.validateCallback(w, r)
 	if err != nil {
 		if req != nil {
-			s.forwardError(w, r, s.handleError(w, r, req, pid, nil, err))
+			s.forwardError(w, r, req, s.handleError(w, r, req, pid, nil, err))
 		} else {
 			s.d.SelfServiceErrorManager().Forward(r.Context(), w, r, s.handleError(w, r, nil, pid, nil, err))
 		}
@@ -276,7 +276,7 @@ func (s *Strategy) handleCallback(w http.ResponseWriter, r *http.Request, ps htt
 
 	m, err := GetMiddleware(r.Context(), s.d.Config(), s.d.SelfServiceErrorManager(), pid)
 	if err != nil {
-		s.forwardError(w, r, err)
+		s.forwardError(w, r, req, err)
 		return
 	}
 
@@ -284,28 +284,28 @@ func (s *Strategy) handleCallback(w http.ResponseWriter, r *http.Request, ps htt
 	possibleRequestIDs := GetPossibleRequestIDs(r, *m)
 	assertion, err := m.ServiceProvider.ParseResponse(r, possibleRequestIDs)
 	if err != nil {
-		s.forwardError(w, r, err)
+		s.forwardError(w, r, req, err)
 		return
 	}
 
 	// We get the user's attributes from the SAML Response (assertion)
 	attributes, err := s.GetAttributesFromAssertion(assertion)
 	if err != nil {
-		s.forwardError(w, r, err)
+		s.forwardError(w, r, req, err)
 		return
 	}
 
 	// We get the provider information from the config file
 	provider, err := s.Provider(r.Context(), pid)
 	if err != nil {
-		s.forwardError(w, r, err)
+		s.forwardError(w, r, req, err)
 		return
 	}
 
 	// We translate SAML Attributes into claims (To create an identity we need these claims)
 	claims, err := provider.Claims(r.Context(), s.d.Config(), attributes, pid)
 	if err != nil {
-		s.forwardError(w, r, err)
+		s.forwardError(w, r, req, err)
 		return
 	}
 
@@ -314,16 +314,23 @@ func (s *Strategy) handleCallback(w http.ResponseWriter, r *http.Request, ps htt
 		// Now that we have the claims and the provider, we have to decide if we log or register the user
 		if ff, err := s.processLoginOrRegister(w, r, a, provider, claims); err != nil {
 			if ff != nil {
-				s.forwardError(w, r, err)
+				s.forwardError(w, r, *ff, err)
 			}
-			s.forwardError(w, r, err)
+			s.forwardError(w, r, a, err)
 		}
 		return
 	}
 }
 
-func (s *Strategy) forwardError(w http.ResponseWriter, r *http.Request, err error) {
-	s.d.LoginFlowErrorHandler().WriteFlowError(w, r, nil, s.NodeGroup(), err)
+func (s *Strategy) forwardError(w http.ResponseWriter, r *http.Request, f flow.Flow, err error) {
+	switch ff := f.(type) {
+	case *login.Flow:
+		s.d.LoginFlowErrorHandler().WriteFlowError(w, r, ff, s.NodeGroup(), err)
+	case *registration.Flow:
+		s.d.RegistrationFlowErrorHandler().WriteFlowError(w, r, ff, s.NodeGroup(), err)
+	default:
+		panic(errors.Errorf("unexpected type: %T", ff))
+	}
 }
 
 // Return the SAML Provider with the specific ID
