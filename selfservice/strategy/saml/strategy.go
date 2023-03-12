@@ -314,7 +314,7 @@ func (s *Strategy) handleCallback(w http.ResponseWriter, r *http.Request, ps htt
 		// Now that we have the claims and the provider, we have to decide if we log or register the user
 		if ff, err := s.processLoginOrRegister(w, r, a, provider, claims); err != nil {
 			if ff != nil {
-				s.forwardError(w, r, *ff, err)
+				s.forwardError(w, r, ff, err)
 			}
 			s.forwardError(w, r, a, err)
 		}

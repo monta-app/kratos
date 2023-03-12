@@ -58,9 +58,8 @@ func TestStrategy(t *testing.T) {
 	ts, _ := testhelpers.NewKratosServerWithRouters(t, reg, routerP, routerA)
 
 	errTS := testhelpers.NewErrorTestServer(t, reg)
-	uiTS := testhelpers.NewLoginUIFlowEchoServer(t, reg)
 	conf.MustSet(ctx, config.ViperKeySelfServiceErrorUI, errTS.URL+"/error-ts")
-	conf.MustSet(ctx, config.ViperKeySelfServiceLoginUI, uiTS.URL+"/login-ts")
+	uiTS := newUI(t, reg)
 
 	providerId := "idp1"
 	urlAcs := ts.URL + saml.RouteBaseAcs + "/" + providerId
@@ -92,10 +91,11 @@ func TestStrategy(t *testing.T) {
 		assert.Equal(t, email, gjson.GetBytes(body, "identity.traits.email").String(), "%s", body)
 	}
 
-	// assert ui error (redirect to login/registration ui endpoint)
+	// assert ui error (redirect to registration ui endpoint)
 	var aue = func(t *testing.T, res *http.Response, body []byte, reason string) {
 		require.Contains(t, res.Request.URL.String(), uiTS.URL, "status: %d, body: %s", res.StatusCode, body)
 		assert.Contains(t, gjson.GetBytes(body, "ui.messages.0.text").String(), reason, "%s", body)
+		assert.Contains(t, gjson.GetBytes(body, "ui.action").String(), "self-service/registration", "%s", body)
 	}
 
 	var newLoginFlow = func(t *testing.T, requestURL string, returnToURL string, exp time.Duration) (f *login.Flow) {

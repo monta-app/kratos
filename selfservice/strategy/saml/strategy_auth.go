@@ -2,6 +2,7 @@ package saml
 
 import (
 	"errors"
+	"github.com/ory/kratos/selfservice/flow/registration"
 	"net/http"
 
 	"github.com/ory/kratos/identity"
@@ -11,7 +12,7 @@ import (
 )
 
 // Handle SAML Assertion and process to either login or register
-func (s *Strategy) processLoginOrRegister(w http.ResponseWriter, r *http.Request, loginFlow *login.Flow, provider Provider, claims *Claims) (*flow.Flow, error) {
+func (s *Strategy) processLoginOrRegister(w http.ResponseWriter, r *http.Request, loginFlow *login.Flow, provider Provider, claims *Claims) (*registration.Flow, error) {
 
 	// If the user's ID is null, we have to handle error
 	if claims.Subject == "" {
@@ -40,9 +41,9 @@ func (s *Strategy) processLoginOrRegister(w http.ResponseWriter, r *http.Request
 
 			if err = s.processRegistration(w, r, registerFlow, provider, claims); err != nil {
 				if i == nil {
-					return nil, s.handleError(w, r, registerFlow, provider.Config().ID, nil, err)
+					return registerFlow, s.handleError(w, r, registerFlow, provider.Config().ID, nil, err)
 				} else {
-					return nil, s.handleError(w, r, registerFlow, provider.Config().ID, i.Traits, err)
+					return registerFlow, s.handleError(w, r, registerFlow, provider.Config().ID, i.Traits, err)
 				}
 			}
 
