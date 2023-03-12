@@ -63,6 +63,28 @@ func newReturnTs(t *testing.T, reg driver.Registry) *httptest.Server {
 	return ts
 }
 
+func newUI(t *testing.T, reg driver.Registry) *httptest.Server {
+	ctx := context.Background()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var e interface{}
+		var err error
+		if r.URL.Path == "/login" {
+			e, err = reg.LoginFlowPersister().GetLoginFlow(r.Context(), x.ParseUUID(r.URL.Query().Get("flow")))
+		} else if r.URL.Path == "/registration" {
+			e, err = reg.RegistrationFlowPersister().GetRegistrationFlow(r.Context(), x.ParseUUID(r.URL.Query().Get("flow")))
+		} else if r.URL.Path == "/settings" {
+			e, err = reg.SettingsFlowPersister().GetSettingsFlow(r.Context(), x.ParseUUID(r.URL.Query().Get("flow")))
+		}
+
+		require.NoError(t, err)
+		reg.Writer().Write(w, r, e)
+	}))
+	t.Cleanup(ts.Close)
+	reg.Config().MustSet(ctx, config.ViperKeySelfServiceLoginUI, ts.URL+"/login")
+	reg.Config().MustSet(ctx, config.ViperKeySelfServiceRegistrationUI, ts.URL+"/registration")
+	reg.Config().MustSet(ctx, config.ViperKeySelfServiceSettingsURL, ts.URL+"/settings")
+	return ts
+}
 func newIDP(t *testing.T, SPentityID string, SPACS string) string {
 	publicPort, err := freeport.GetFreePort()
 	require.NoError(t, err)
