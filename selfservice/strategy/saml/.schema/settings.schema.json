@@ -3,13 +3,13 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
-    "link": {
+    "samlLink": {
       "type": "string"
     },
     "csrf_token": {
       "type": "string"
     },
-    "unlink": {
+    "samlUnlink": {
       "type": "string"
     },
     "traits": {

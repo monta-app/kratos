@@ -3,7 +3,9 @@ package saml
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -87,6 +89,7 @@ type registrationStrategyDependencies interface {
 
 	identity.PrivilegedPoolProvider
 	identity.ValidationProvider
+	identity.ManagementProvider
 
 	session.HandlerProvider
 	session.ManagementProvider
@@ -122,6 +125,11 @@ type authCodeContainer struct {
 	FlowID string          `json:"flow_id"`
 	State  string          `json:"state"`
 	Traits json.RawMessage `json:"traits"`
+}
+
+func generateState(flowID string) string {
+	state := x.NewUUID().String()
+	return base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", flowID, state)))
 }
 
 func NewStrategy(d registrationStrategyDependencies) *Strategy {
@@ -319,6 +327,21 @@ func (s *Strategy) handleCallback(w http.ResponseWriter, r *http.Request, ps htt
 			s.forwardError(w, r, a, err)
 		}
 		return
+	case *settings.Flow:
+		sess, err := s.d.SessionManager().FetchFromRequest(r.Context(), r)
+		if err != nil {
+			s.forwardError(w, r, a, s.handleError(w, r, a, pid, nil, err))
+			return
+		}
+		if err := s.linkProvider(w, r, &settings.UpdateContext{Session: sess, Flow: a}, claims, provider); err != nil {
+			s.forwardError(w, r, a, s.handleError(w, r, a, pid, nil, err))
+			return
+		}
+		return
+	default:
+		s.forwardError(w, r, req, s.handleError(w, r, req, pid, nil, errors.WithStack(x.PseudoPanic.
+			WithDetailf("cause", "Unexpected type in SAML flow: %T", a))))
+		return
 	}
 }
 
@@ -458,7 +481,7 @@ func (s *Strategy) CountActiveFirstFactorCredentials(cc map[identity.Credentials
 				}
 
 				for _, prov := range conf.Providers {
-					if parts[0] == prov.Provider && parts[1] == prov.Subject && len(prov.Subject) > 1 && len(prov.Provider) > 1 {
+					if parts[0] == prov.Provider && parts[1] == prov.Subject && len(prov.Subject) > 0 && len(prov.Provider) > 0 {
 						count++
 					}
 				}

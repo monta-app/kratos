@@ -316,3 +316,9 @@ func getAttribute(n *html.Node, key string) (string, bool) {
 
 	return "", false
 }
+
+func viperSetProviderConfig(t *testing.T, conf *config.Config, providers ...saml.Configuration) {
+	ctx := context.Background()
+	conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypeSAML)+".config", &saml.ConfigurationCollection{SAMLProviders: providers})
+	conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypeSAML)+".enabled", true)
+}

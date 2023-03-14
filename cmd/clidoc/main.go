@@ -131,6 +131,8 @@ func init() {
 		"NewInfoSelfServiceContinueLoginWebAuthn":                 text.NewInfoSelfServiceContinueLoginWebAuthn(),
 		"NewInfoSelfServiceLoginContinue":                         text.NewInfoSelfServiceLoginContinue(),
 		"NewErrorValidationSuchNoWebAuthnUser":                    text.NewErrorValidationSuchNoWebAuthnUser(),
+		"NewInfoSelfServiceSettingsUpdateLinkSAML":                text.NewInfoSelfServiceSettingsUpdateLinkSAML(),
+		"NewInfoSelfServiceSettingsUpdateUnlinkSAML":              text.NewInfoSelfServiceSettingsUpdateUnlinkSAML("{provider}"),
 	}
 }
 
