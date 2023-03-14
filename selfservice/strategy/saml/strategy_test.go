@@ -61,7 +61,7 @@ func TestStrategy(t *testing.T) {
 	conf.MustSet(ctx, config.ViperKeySelfServiceErrorUI, errTS.URL+"/error-ts")
 	uiTS := newUI(t, reg)
 
-	providerId := "idp1"
+	providerId := "TestStrategyProvider"
 	urlAcs := ts.URL + saml.RouteBaseAcs + "/" + providerId
 	remoteIDP := newIDP(t, ts.URL+saml.RouteBaseMetadata+"/"+providerId, urlAcs)
 

@@ -62,6 +62,8 @@ const (
 	InfoSelfServiceSettingsDisableLookup
 	InfoSelfServiceSettingsTOTPSecretLabel
 	InfoSelfServiceSettingsRemoveWebAuthn
+	InfoSelfServiceSettingsUpdateLinkSAML
+	InfoSelfServiceSettingsUpdateUnlinkSAML
 )
 
 const (

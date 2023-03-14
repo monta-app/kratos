@@ -141,6 +141,8 @@ func init() {
 		"NewErrorValidationInvalidPin":                            text.NewErrorValidationInvalidPin(),
 		"NewInfoLoginPinLabel":                                    text.NewInfoLoginPinLabel(),
 		"NewInfoNodeInputPin":                                     text.NewInfoNodeInputPin(),
+		"NewInfoSelfServiceSettingsUpdateLinkSAML":                text.NewInfoSelfServiceSettingsUpdateLinkSAML(),
+		"NewInfoSelfServiceSettingsUpdateUnlinkSAML":              text.NewInfoSelfServiceSettingsUpdateUnlinkSAML("{provider}"),
 	}
 }
 
