@@ -15,6 +15,7 @@ import (
 	"github.com/ory/kratos/session"
 	"github.com/ory/kratos/x"
 	"github.com/ory/x/decoderx"
+	"github.com/ory/x/urlx"
 	"github.com/pkg/errors"
 	"github.com/tidwall/sjson"
 	"net/http"
@@ -327,9 +328,11 @@ func (s *Strategy) initLinkProvider(w http.ResponseWriter, r *http.Request, ctxU
 	}
 
 	if x.IsJSONRequest(r) {
-		s.d.Writer().WriteError(w, r, flow.NewBrowserLocationChangeRequiredError(RouteBaseAuth+"/"+p.Link))
+		s.d.Writer().WriteError(w, r, flow.NewBrowserLocationChangeRequiredError(
+			urlx.AppendPaths(s.d.Config().SelfPublicURL(r.Context()), RouteBaseAuth+"/"+p.Link).String()))
 	} else {
-		http.Redirect(w, r, RouteBaseAuth+"/"+p.Link, http.StatusSeeOther)
+		http.Redirect(w, r,
+			urlx.AppendPaths(s.d.Config().SelfPublicURL(r.Context()), RouteBaseAuth+"/"+p.Link).String(), http.StatusSeeOther)
 	}
 
 	return errors.WithStack(flow.ErrCompletedByStrategy)
