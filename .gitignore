@@ -64,3 +64,4 @@ test/e2e/kratos.*.yml
 kratos
 # VSCode debug artifact
 __debug_bin
+/.run/
