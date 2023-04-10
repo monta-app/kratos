@@ -1,4 +1,5 @@
 # Krtatos extended
+
 This repository contains Kratos extensions developed by Monta.
 
 ## No commits to this repo
@@ -9,6 +10,7 @@ https://github.com/monta-app/kratos.git
 Commits here are allowed only to the `devops` branch.
 
 ## List of all active branches
+
 | Branch name                                     | Comment                                                                                                                              |
 |-------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
 | develop                                         | This is the source of deployment to the development environment                                                                      |
@@ -25,4 +27,4 @@ Commits here are allowed only to the `devops` branch.
 | fix-verification-api                            | https://github.com/ory/kratos/pull/2542                                                                                              |
 | fix-core-558                                    | Temporary fix to password recovery problem                                                                                           |
 | monta-app/kratos/upgrade-kratos/feature/webview | Changes merged into feature/oidc-api and saml-webview. Should be deleted when one of these branches is merged into ory/kratos/master |
-|
+| feature/link-credentials-when-login             | https://github.com/ory/kratos/pull/3222                                                                                              |
