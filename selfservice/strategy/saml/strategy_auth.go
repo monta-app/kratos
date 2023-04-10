@@ -27,10 +27,15 @@ func (s *Strategy) processLoginOrRegister(w http.ResponseWriter, r *http.Request
 		if errors.Is(err, sqlcon.ErrNoRows) {
 
 			// The user doesn't exist yet so we register him
+
 			query := r.URL.Query()
 			query.Set("return_to", loginFlow.ReturnTo)
 			r.URL.RawQuery = query.Encode()
-			registerFlow, err := s.d.RegistrationHandler().NewRegistrationFlow(w, r, flow.TypeBrowser)
+
+			var opts []registration.FlowOption
+			opts = append(opts, registration.WithOuterFlow(loginFlow.ID))
+
+			registerFlow, err := s.d.RegistrationHandler().NewRegistrationFlow(w, r, flow.TypeBrowser, opts...)
 			if err != nil {
 				if i == nil {
 					return nil, s.handleError(w, r, registerFlow, provider.Config().ID, nil, err)

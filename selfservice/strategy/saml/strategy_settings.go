@@ -15,6 +15,7 @@ import (
 	"github.com/ory/kratos/session"
 	"github.com/ory/kratos/x"
 	"github.com/ory/x/decoderx"
+	"github.com/ory/x/sqlxx"
 	"github.com/ory/x/urlx"
 	"github.com/pkg/errors"
 	"github.com/tidwall/sjson"
@@ -350,34 +351,49 @@ func (s *Strategy) linkProvider(w http.ResponseWriter, r *http.Request, ctxUpdat
 		return s.handleSettingsError(w, r, ctxUpdate, p, err)
 	}
 
-	var conf identity.CredentialsSAML
-	creds, err := i.ParseCredentials(s.ID(), &conf)
-	if errors.Is(err, herodot.ErrNotFound) {
-		var err error
-		if creds, err = identity.NewCredentialsSAML(claims.Subject, provider.Config().ID); err != nil {
-			return s.handleSettingsError(w, r, ctxUpdate, p, err)
-		}
-	} else if err != nil {
+	if err := s.linkCredentials(r.Context(), i, provider.Config().ID, claims.Subject); err != nil {
 		return s.handleSettingsError(w, r, ctxUpdate, p, err)
-	} else {
-		creds.Identifiers = append(creds.Identifiers, identity.SAMLUniqueID(provider.Config().ID, claims.Subject))
-		conf.Providers = append(conf.Providers, identity.CredentialsSAMLProvider{
-			Subject: claims.Subject, Provider: provider.Config().ID,
-		})
-
-		creds.Config, err = json.Marshal(conf)
-		if err != nil {
-			return s.handleSettingsError(w, r, ctxUpdate, p, err)
-		}
 	}
 
-	i.Credentials[s.ID()] = *creds
 	if err := s.d.SettingsHookExecutor().PostSettingsHook(w, r, s.SettingsStrategyID(), ctxUpdate, i, settings.WithCallback(func(ctxUpdate *settings.UpdateContext) error {
 		return s.PopulateSettingsMethod(r, ctxUpdate.Session.Identity, ctxUpdate.Flow)
 	})); err != nil {
 		return s.handleSettingsError(w, r, ctxUpdate, p, err)
 	}
 
+	return nil
+}
+
+func (s *Strategy) linkCredentials(ctx context.Context, i *identity.Identity, provider, subject string) error {
+	if i.Credentials == nil {
+		confidential, err := s.d.PrivilegedIdentityPool().GetIdentityConfidential(ctx, i.ID)
+		if err != nil {
+			return err
+		}
+		i.Credentials = confidential.Credentials
+	}
+	var conf identity.CredentialsSAML
+	creds, err := i.ParseCredentials(s.ID(), &conf)
+	if errors.Is(err, herodot.ErrNotFound) {
+		var err error
+		if creds, err = identity.NewCredentialsSAML(subject, provider); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else {
+		creds.Identifiers = append(creds.Identifiers, identity.SAMLUniqueID(provider, subject))
+		conf.Providers = append(conf.Providers, identity.CredentialsSAMLProvider{
+			Subject: subject, Provider: provider,
+		})
+
+		creds.Config, err = json.Marshal(conf)
+		if err != nil {
+			return err
+		}
+	}
+
+	i.Credentials[s.ID()] = *creds
 	return nil
 }
 
@@ -458,4 +474,31 @@ func (s *Strategy) handleSettingsError(w http.ResponseWriter, r *http.Request, c
 	}
 
 	return err
+}
+
+func (s *Strategy) Link(ctx context.Context, i *identity.Identity, credentialsConfig sqlxx.JSONRawMessage) error {
+	var credentialsSAMLConfig identity.CredentialsSAML
+	if err := json.Unmarshal(credentialsConfig, &credentialsSAMLConfig); err != nil {
+		return err
+	}
+	if len(credentialsSAMLConfig.Providers) != 1 {
+		return errors.New("No SAML provider was set")
+	}
+	var credentialsSAMLProvider = credentialsSAMLConfig.Providers[0]
+
+	if err := s.linkCredentials(
+		ctx,
+		i,
+		credentialsSAMLProvider.Provider,
+		credentialsSAMLProvider.Subject,
+	); err != nil {
+		return err
+	}
+
+	options := []identity.ManagerOption{identity.ManagerAllowWriteProtectedTraits}
+	if err := s.d.IdentityManager().Update(ctx, i, options...); err != nil {
+		return err
+	}
+
+	return nil
 }

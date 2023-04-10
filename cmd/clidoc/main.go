@@ -133,6 +133,7 @@ func init() {
 		"NewErrorValidationSuchNoWebAuthnUser":                    text.NewErrorValidationSuchNoWebAuthnUser(),
 		"NewInfoSelfServiceSettingsUpdateLinkSAML":                text.NewInfoSelfServiceSettingsUpdateLinkSAML(),
 		"NewInfoSelfServiceSettingsUpdateUnlinkSAML":              text.NewInfoSelfServiceSettingsUpdateUnlinkSAML("{provider}"),
+		"NewInfoSelfServiceLoginLinkCredentials":                  text.NewInfoSelfServiceLoginLinkCredentials(),
 	}
 }
 
