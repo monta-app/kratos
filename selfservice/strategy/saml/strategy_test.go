@@ -12,6 +12,7 @@ import (
 	"github.com/ory/kratos/selfservice/flow"
 	"github.com/ory/kratos/selfservice/flow/login"
 	"github.com/ory/kratos/ui/container"
+	"github.com/ory/kratos/ui/node"
 	"github.com/ory/kratos/x"
 	"github.com/ory/x/assertx"
 	"github.com/ory/x/sqlcon"
@@ -281,7 +282,7 @@ func TestStrategy(t *testing.T) {
 		})
 	})
 
-	t.Run("case=case=registration should start new login flow if duplicate credentials detected", func(t *testing.T) {
+	t.Run("case=registration should start new login flow if duplicate credentials detected", func(t *testing.T) {
 		email = "user1@example.com"
 		password := "lwkj52sdkjf"
 		var i *identity.Identity
@@ -340,6 +341,8 @@ func TestStrategy(t *testing.T) {
 			}, с, 200)
 
 			aue(t, res, body, "An account with the same identifier (email, phone, username, ...) exists already.")
+			assert.Equal(t, node.LoginAndLinkCredentials,
+				gjson.GetBytes(body, "ui.nodes.#(attributes.name==\"method\").attributes.value").String(), "%s", body)
 			flowID, _ = uuid.FromString(gjson.GetBytes(body, "id").String())
 		})
 
@@ -349,8 +352,7 @@ func TestStrategy(t *testing.T) {
 			action := afv(t, flowID, providerId)
 
 			res, body := makeRequestWithClient(t, action, url.Values{
-				"method":       []string{"saml"},
-				"samlProvider": []string{providerId},
+				"method": []string{node.LoginAndLinkCredentials},
 			}, с, 200)
 			require.Contains(t, res.Request.URL.String(), uiTS.URL, "status: %d, body: %s", res.StatusCode, body)
 			assert.Contains(t, gjson.GetBytes(body, "ui.messages.0.text").String(),
