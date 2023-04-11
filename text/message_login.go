@@ -192,3 +192,12 @@ func NewInfoLoginPinLabel() *Message {
 		Context: context(nil),
 	}
 }
+
+func NewInfoSelfServiceLoginLinkCredentials() *Message {
+	return &Message{
+		ID:      InfoSelfServiceLoginLinkCredentials,
+		Text:    "New credentials will be linked to existing account after login.",
+		Type:    Info,
+		Context: context(nil),
+	}
+}

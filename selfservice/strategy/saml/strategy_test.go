@@ -281,11 +281,14 @@ func TestStrategy(t *testing.T) {
 		})
 	})
 
-	t.Run("case=should fail to register if email is already being used by password credentials", func(t *testing.T) {
+	t.Run("case=case=registration should start new login flow if duplicate credentials detected", func(t *testing.T) {
 		email = "user1@example.com"
+		password := "lwkj52sdkjf"
+		var i *identity.Identity
 
 		t.Run("case=create password identity", func(t *testing.T) {
-			i, _, err := reg.PrivilegedIdentityPool().FindByCredentialsIdentifier(
+			var err error
+			i, _, err = reg.PrivilegedIdentityPool().FindByCredentialsIdentifier(
 				context.Background(),
 				identity.CredentialsTypePassword,
 				email,
@@ -298,31 +301,33 @@ func TestStrategy(t *testing.T) {
 				assert.NoError(t, err)
 			}
 			i = identity.NewIdentity(config.DefaultIdentityTraitsSchemaID)
+			p, err := reg.Hasher(ctx).Generate(ctx, []byte(password))
 			i.SetCredentials(identity.CredentialsTypePassword, identity.Credentials{
 				Identifiers: []string{email},
+				Config:      sqlxx.JSONRawMessage(`{"hashed_password":"` + string(p) + `"}`),
 			})
 			i.Traits = identity.Traits(`{"email":"` + email + `"}`)
 
 			require.NoError(t, reg.PrivilegedIdentityPool().CreateIdentity(context.Background(), i))
 		})
 
+		с := NewTestClient(t, nil)
+		var flowID uuid.UUID
 		t.Run("case=should fail login", func(t *testing.T) {
 			f := newLoginFlow(t, returnTS.URL, "", time.Minute)
 			action := afv(t, f.ID, providerId)
-
-			client := NewTestClient(t, nil)
 
 			//Post to kratos to initiate SAML flow
 			res, body := makeRequestWithClient(t, action, url.Values{
 				"method":       []string{"saml"},
 				"samlProvider": []string{providerId},
-			}, client, 200)
+			}, с, 200)
 
 			//Post to identity provider UI
 			res, body = makeRequestWithClient(t, res.Request.URL.String(), url.Values{
 				"username": []string{"user1"},
 				"password": []string{"user1pass"},
-			}, client, 200)
+			}, с, 200)
 
 			//Extract SAML response from body returned by identity provider
 			SAMLResponse := getValueByName(body, "SAMLResponse")
@@ -332,9 +337,45 @@ func TestStrategy(t *testing.T) {
 			res, body = makeRequestWithClient(t, urlAcs, url.Values{
 				"SAMLResponse": []string{SAMLResponse},
 				"RelayState":   []string{relayState},
-			}, client, 200)
+			}, с, 200)
 
 			aue(t, res, body, "An account with the same identifier (email, phone, username, ...) exists already.")
+			flowID, _ = uuid.FromString(gjson.GetBytes(body, "id").String())
+		})
+
+		var loginFlow *login.Flow
+
+		t.Run("case=should start new login flow", func(t *testing.T) {
+			action := afv(t, flowID, providerId)
+
+			res, body := makeRequestWithClient(t, action, url.Values{
+				"method":       []string{"saml"},
+				"samlProvider": []string{providerId},
+			}, с, 200)
+			require.Contains(t, res.Request.URL.String(), uiTS.URL, "status: %d, body: %s", res.StatusCode, body)
+			assert.Contains(t, gjson.GetBytes(body, "ui.messages.0.text").String(),
+				"New credentials will be linked to existing account after login.", "%s", body)
+			loginFlow, _ = reg.LoginFlowPersister().GetLoginFlow(context.Background(), uuid.FromStringOrNil(gjson.GetBytes(body, "id").String()))
+			assert.NotNil(t, loginFlow, "%s", body)
+		})
+
+		t.Run("case=should link saml credentials to existing identity", func(t *testing.T) {
+			res, body := makeRequestWithClient(t, loginFlow.UI.Action, url.Values{
+				"csrf_token": {loginFlow.CSRFToken},
+				"method":     {"password"},
+				"identifier": {email},
+				"password":   {password},
+			}, с, 200)
+			assert.Contains(t, res.Request.URL.String(), returnTS.URL, "%s", body)
+			assert.Equal(t, email, gjson.GetBytes(body, "identity.traits.email").String(), "%s", body)
+			var err error
+			i, err = reg.PrivilegedIdentityPool().GetIdentityConfidential(ctx, i.ID)
+			require.NoError(t, err)
+			assert.NotEmpty(t, i.Credentials["saml"], "%+v", i.Credentials)
+			assert.Equal(t, "TestStrategyProvider", gjson.GetBytes(i.Credentials["saml"].Config,
+				"providers.0.samlProvider").String(),
+				"%s", string(i.Credentials["saml"].Config[:]))
+			assert.Equal(t, "saml", gjson.GetBytes(body, "authentication_methods.0.method").String(), "%s", body)
 		})
 	})
 }
