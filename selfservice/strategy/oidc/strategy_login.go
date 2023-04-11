@@ -103,6 +103,8 @@ func (s *Strategy) processLogin(w http.ResponseWriter, r *http.Request, a *login
 				opts = append(opts, registration.WithFlowReturnTo(a.ReturnTo))
 			}
 
+			opts = append(opts, registration.WithOuterFlow(a.ID))
+
 			// This flow only works for browsers anyways.
 			query := r.URL.Query()
 			query.Set("return_to", a.ReturnTo)
