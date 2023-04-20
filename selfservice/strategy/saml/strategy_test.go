@@ -92,11 +92,11 @@ func TestStrategy(t *testing.T) {
 		assert.Equal(t, email, gjson.GetBytes(body, "identity.traits.email").String(), "%s", body)
 	}
 
-	// assert ui error (redirect to registration ui endpoint)
+	// assert ui error
 	var aue = func(t *testing.T, res *http.Response, body []byte, reason string) {
 		require.Contains(t, res.Request.URL.String(), uiTS.URL, "status: %d, body: %s", res.StatusCode, body)
 		assert.Contains(t, gjson.GetBytes(body, "ui.messages.0.text").String(), reason, "%s", body)
-		assert.Contains(t, gjson.GetBytes(body, "ui.action").String(), "self-service/registration", "%s", body)
+		assert.Contains(t, gjson.GetBytes(body, "ui.action").String(), "self-service/login", "%s", body)
 	}
 
 	var newLoginFlow = func(t *testing.T, requestURL string, returnToURL string, exp time.Duration) (f *login.Flow) {
@@ -312,7 +312,7 @@ func TestStrategy(t *testing.T) {
 			require.NoError(t, reg.PrivilegedIdentityPool().CreateIdentity(context.Background(), i))
 		})
 
-		с := NewTestClient(t, nil)
+		c := NewTestClient(t, nil)
 		var flowID uuid.UUID
 		t.Run("case=should fail login", func(t *testing.T) {
 			f := newLoginFlow(t, returnTS.URL, "", time.Minute)
@@ -322,13 +322,13 @@ func TestStrategy(t *testing.T) {
 			res, body := makeRequestWithClient(t, action, url.Values{
 				"method":       []string{"saml"},
 				"samlProvider": []string{providerId},
-			}, с, 200)
+			}, c, 200)
 
 			//Post to identity provider UI
 			res, body = makeRequestWithClient(t, res.Request.URL.String(), url.Values{
 				"username": []string{"user1"},
 				"password": []string{"user1pass"},
-			}, с, 200)
+			}, c, 200)
 
 			//Extract SAML response from body returned by identity provider
 			SAMLResponse := getValueByName(body, "SAMLResponse")
@@ -338,11 +338,13 @@ func TestStrategy(t *testing.T) {
 			res, body = makeRequestWithClient(t, urlAcs, url.Values{
 				"SAMLResponse": []string{SAMLResponse},
 				"RelayState":   []string{relayState},
-			}, с, 200)
+			}, c, 200)
 
 			aue(t, res, body, "An account with the same identifier (email, phone, username, ...) exists already.")
-			assert.Equal(t, node.LoginAndLinkCredentials,
-				gjson.GetBytes(body, "ui.nodes.#(attributes.name==\"method\").attributes.value").String(), "%s", body)
+			assert.NotEmpty(t, gjson.GetBytes(body,
+				fmt.Sprintf("ui.nodes.#(attributes.value==\"%s\")",
+					node.LoginAndLinkCredentials)).String(),
+				"%s", body)
 			flowID, _ = uuid.FromString(gjson.GetBytes(body, "id").String())
 		})
 
@@ -353,7 +355,7 @@ func TestStrategy(t *testing.T) {
 
 			res, body := makeRequestWithClient(t, action, url.Values{
 				"method": []string{node.LoginAndLinkCredentials},
-			}, с, 200)
+			}, c, 200)
 			require.Contains(t, res.Request.URL.String(), uiTS.URL, "status: %d, body: %s", res.StatusCode, body)
 			assert.Contains(t, gjson.GetBytes(body, "ui.messages.0.text").String(),
 				"New credentials will be linked to existing account after login.", "%s", body)
@@ -367,7 +369,7 @@ func TestStrategy(t *testing.T) {
 				"method":     {"password"},
 				"identifier": {email},
 				"password":   {password},
-			}, с, 200)
+			}, c, 200)
 			assert.Contains(t, res.Request.URL.String(), returnTS.URL, "%s", body)
 			assert.Equal(t, email, gjson.GetBytes(body, "identity.traits.email").String(), "%s", body)
 			var err error

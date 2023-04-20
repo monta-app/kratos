@@ -104,11 +104,7 @@ func (s *Strategy) processRegistration(w http.ResponseWriter, r *http.Request, a
 
 	i, err := s.GetRegistrationIdentity(r, r.Context(), provider, claims, true)
 	if err != nil {
-		if i == nil {
-			return s.handleError(w, r, a, provider.Config().ID, nil, err)
-		} else {
-			return s.handleError(w, r, a, provider.Config().ID, i.Traits, err)
-		}
+		return s.handleError(w, r, a, provider.Config().ID, nil, err)
 	}
 
 	if err := s.d.RegistrationExecutor().PostRegistrationHook(w, r, identity.CredentialsTypeSAML, a, i); err != nil {
