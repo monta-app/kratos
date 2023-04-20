@@ -12,11 +12,11 @@ import (
 )
 
 // Handle SAML Assertion and process to either login or register
-func (s *Strategy) processLoginOrRegister(w http.ResponseWriter, r *http.Request, loginFlow *login.Flow, provider Provider, claims *Claims) (*registration.Flow, error) {
+func (s *Strategy) processLoginOrRegister(w http.ResponseWriter, r *http.Request, loginFlow *login.Flow, provider Provider, claims *Claims) error {
 
 	// If the user's ID is null, we have to handle error
 	if claims.Subject == "" {
-		return nil, s.handleError(w, r, loginFlow, provider.Config().ID, nil, errors.New("the user ID is empty: the problem probably comes from the mapping between the SAML attributes and the identity attributes"))
+		return s.handleError(w, r, loginFlow, provider.Config().ID, nil, errors.New("the user ID is empty: the problem probably comes from the mapping between the SAML attributes and the identity attributes"))
 	}
 
 	// This is a check to see if the user exists in the database
@@ -37,43 +37,23 @@ func (s *Strategy) processLoginOrRegister(w http.ResponseWriter, r *http.Request
 
 			registerFlow, err := s.d.RegistrationHandler().NewRegistrationFlow(w, r, flow.TypeBrowser, opts...)
 			if err != nil {
-				if i == nil {
-					return nil, s.handleError(w, r, registerFlow, provider.Config().ID, nil, err)
-				} else {
-					return nil, s.handleError(w, r, registerFlow, provider.Config().ID, i.Traits, err)
-				}
+				return s.handleError(w, r, loginFlow, provider.Config().ID, nil, err)
 			}
 
 			if err = s.processRegistration(w, r, registerFlow, provider, claims); err != nil {
-				if i == nil {
-					return registerFlow, s.handleError(w, r, registerFlow, provider.Config().ID, nil, err)
-				} else {
-					return registerFlow, s.handleError(w, r, registerFlow, provider.Config().ID, i.Traits, err)
-				}
+				return s.handleError(w, r, loginFlow, provider.Config().ID, nil, err)
 			}
 
-			return nil, nil
+			return nil
 
 		} else {
-			return nil, err
+			return err
 		}
 	} else {
 		// The user already exist in database, so we log him
-		// loginFlow, err := s.d.LoginHandler().NewLoginFlow(w, r, flow.TypeBrowser)
-		if err != nil {
-			if i == nil {
-				return nil, s.handleError(w, r, loginFlow, provider.Config().ID, nil, err)
-			} else {
-				return nil, s.handleError(w, r, loginFlow, provider.Config().ID, i.Traits, err)
-			}
-		}
 		if _, err = s.processLogin(w, r, loginFlow, provider, c, i, claims); err != nil {
-			if i == nil {
-				return nil, s.handleError(w, r, loginFlow, provider.Config().ID, nil, err)
-			} else {
-				return nil, s.handleError(w, r, loginFlow, provider.Config().ID, i.Traits, err)
-			}
+			return s.handleError(w, r, loginFlow, provider.Config().ID, i.Traits, err)
 		}
-		return nil, nil
+		return nil
 	}
 }

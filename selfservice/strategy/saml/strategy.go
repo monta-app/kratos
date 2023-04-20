@@ -272,6 +272,8 @@ func (s *Strategy) handleCallback(w http.ResponseWriter, r *http.Request, ps htt
 		s.d.SelfServiceErrorManager().Forward(r.Context(), w, r, s.handleError(w, r, nil, pid, nil, err))
 	}
 
+	s.d.Logger().WithField("SAMLResponse", r.PostForm.Get("SAMLResponse")).Debug("Received SAML Response")
+
 	req, _, err := s.validateCallback(w, r)
 	if err != nil {
 		if req != nil {
@@ -292,6 +294,10 @@ func (s *Strategy) handleCallback(w http.ResponseWriter, r *http.Request, ps htt
 	possibleRequestIDs := GetPossibleRequestIDs(r, *m)
 	assertion, err := m.ServiceProvider.ParseResponse(r, possibleRequestIDs)
 	if err != nil {
+		sErr, ok := err.(*saml.InvalidResponseError)
+		if ok {
+			s.d.Logger().WithError(sErr.PrivateErr).Debug("Error parsing SAML Response")
+		}
 		s.forwardError(w, r, req, err)
 		return
 	}
@@ -320,11 +326,13 @@ func (s *Strategy) handleCallback(w http.ResponseWriter, r *http.Request, ps htt
 	switch a := req.(type) {
 	case *login.Flow:
 		// Now that we have the claims and the provider, we have to decide if we log or register the user
-		if ff, err := s.processLoginOrRegister(w, r, a, provider, claims); err != nil {
-			if ff != nil {
-				s.forwardError(w, r, ff, err)
+		if err := s.processLoginOrRegister(w, r, a, provider, claims); err != nil {
+			// Need to re-fetch flow as it might has been updated
+			updatedFlow, innerErr := s.d.LoginFlowPersister().GetLoginFlow(r.Context(), a.ID)
+			if innerErr != nil {
+				s.forwardError(w, r, a, innerErr)
 			}
-			s.forwardError(w, r, a, err)
+			s.forwardError(w, r, updatedFlow, err)
 		}
 		return
 	case *settings.Flow:
@@ -405,7 +413,7 @@ func (s *Strategy) populateMethod(r *http.Request, c *container.Container, messa
 func (s *Strategy) handleError(w http.ResponseWriter, r *http.Request, f flow.Flow, provider string, traits []byte, err error) error {
 	switch rf := f.(type) {
 	case *login.Flow:
-		return ErrAPIFlowNotSupported.WithTrace(err)
+		return err
 	case *registration.Flow:
 		// Reset all nodes to not confuse users.
 		// This is kinda hacky and will probably need to be updated at some point.
