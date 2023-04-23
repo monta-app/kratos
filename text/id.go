@@ -111,6 +111,7 @@ const (
 	ErrorValidationNoLookup
 	ErrorValidationSuchNoWebAuthnUser
 	ErrorValidationLookupInvalid
+	ErrorValidationSAMLProviderNotFound
 )
 
 const (

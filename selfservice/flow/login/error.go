@@ -114,7 +114,23 @@ func (s *ErrorHandler) WriteFlowError(w http.ResponseWriter, r *http.Request, f 
 	}
 
 	if f.Type == flow.TypeBrowser && !x.IsJSONRequest(r) {
-		http.Redirect(w, r, f.AppendTo(s.d.Config().SelfServiceFlowLoginUI(r.Context())).String(), http.StatusSeeOther)
+		isWebView, innerErr := flow.IsWebViewFlow(r.Context(), s.d.Config(), f)
+		if innerErr != nil {
+			s.forward(w, r, f, innerErr)
+			return
+		}
+
+		var redirectLocation = ""
+		if isWebView {
+			redirectLocation, innerErr = flow.GetWebViewRedirectLocation(r, f, s.d.Config(), f.Active.String())
+			if innerErr != nil {
+				s.forward(w, r, f, innerErr)
+				return
+			}
+		} else {
+			redirectLocation = f.AppendTo(s.d.Config().SelfServiceFlowLoginUI(r.Context())).String()
+		}
+		http.Redirect(w, r, redirectLocation, http.StatusSeeOther)
 		return
 	}
 

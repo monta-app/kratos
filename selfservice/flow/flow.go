@@ -6,9 +6,12 @@ package flow
 import (
 	"context"
 	"github.com/ory/kratos/identity"
+	"github.com/ory/kratos/text"
 	"github.com/ory/x/sqlxx"
 	"net/http"
 	"net/url"
+	"path"
+	"strconv"
 
 	"github.com/ory/kratos/driver/config"
 
@@ -65,4 +68,38 @@ func IsWebViewFlow(ctx context.Context, conf *config.Config, f Flow) (bool, erro
 		return false, nil
 	}
 	return requestURL.Query().Get("return_to") == redirectURL.String(), nil
+}
+
+func GetWebViewRedirectLocation(r *http.Request, f Flow, conf *config.Config, strategy string) (string, error) {
+	returnTo, innerErr := x.SecureRedirectTo(r, conf.SelfServiceBrowserDefaultReturnTo(r.Context()),
+		x.SecureRedirectUseSourceURL(f.GetRequestURL()),
+		x.SecureRedirectAllowURLs(conf.SelfServiceBrowserAllowedReturnToDomains(r.Context())),
+		x.SecureRedirectAllowSelfServiceURLs(conf.SelfPublicURL(r.Context())),
+		x.SecureRedirectOverrideDefaultReturnTo(conf.SelfServiceFlowLoginReturnTo(r.Context(), strategy)),
+	)
+	if innerErr != nil {
+		return "", innerErr
+	}
+
+	query := returnTo.Query()
+
+	var msg *text.Message = nil
+	ui := f.GetUI()
+	if len(ui.Messages) > 0 {
+		msg = &ui.Messages[0]
+	} else {
+		for _, node := range ui.Nodes {
+			if len(node.Messages) > 0 {
+				msg = &node.Messages[0]
+				break
+			}
+		}
+	}
+	if msg != nil {
+		query.Set("code", strconv.Itoa(int(msg.ID)))
+		query.Set("message", msg.Text)
+		returnTo.RawQuery = query.Encode()
+	}
+	returnTo.Path = path.Join(returnTo.Path, "kerr")
+	return returnTo.String(), nil
 }

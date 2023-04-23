@@ -43,6 +43,6 @@ func NewErrProviderIDMissingError() error {
 			Message:     "SAML Provider is unknown or has not been configured",
 			InstancePtr: "#/samlProvider",
 		},
-		Messages: new(text.Messages).Add(text.NewValidationErrorGeneric("SAML Provider is unknown or has not been configured")),
+		Messages: new(text.Messages).Add(text.NewErrorValidationSAMLProviderNotFound()),
 	})
 }
