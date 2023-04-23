@@ -11,6 +11,7 @@ import (
 	"github.com/ory/kratos/internal/testhelpers"
 	"github.com/ory/kratos/selfservice/flow"
 	"github.com/ory/kratos/selfservice/flow/login"
+	"github.com/ory/kratos/text"
 	"github.com/ory/kratos/ui/container"
 	"github.com/ory/kratos/ui/node"
 	"github.com/ory/kratos/x"
@@ -25,6 +26,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -199,6 +201,33 @@ func TestStrategy(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.Contains(t, flowWithError.UI.Nodes.Find("samlProvider").Messages[0].Text, "is unknown")
+		})
+
+		t.Run("case=webview", func(t *testing.T) {
+			f := newLoginFlow(t, returnTS.URL, webviewRedirectURI, time.Minute)
+			action := afv(t, f.ID, providerId)
+
+			cj, err := cookiejar.New(&cookiejar.Options{})
+			require.NoError(t, err)
+			client := &http.Client{
+				Jar: cj,
+				CheckRedirect: func(req *http.Request, via []*http.Request) error {
+					if strings.HasSuffix(req.URL.Path, "/kerr") {
+						assert.Equal(t, strconv.Itoa(int(text.ErrorValidationSAMLProviderNotFound)), req.URL.Query().Get("code"), "%s", req.URL.String())
+						return http.ErrUseLastResponse
+					}
+					return nil
+				},
+			}
+
+			//Post to kratos to initiate SAML flow
+			res, _ := makeRequestWithClient(t, action, url.Values{
+				"method":       []string{"saml"},
+				"samlProvider": []string{"does-not-exist"},
+			}, client, 303)
+			location, err := res.Location()
+			assert.NoError(t, err)
+			assert.True(t, strings.HasSuffix(location.Path, "/kerr"), "%v", res)
 		})
 	})
 

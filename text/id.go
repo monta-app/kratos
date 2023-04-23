@@ -24,7 +24,7 @@ const (
 	InfoSelfServiceLoginWebAuthnPasswordless                     // 1010012
 	InfoSelfServiceLoginContinue                                 // 1010013
 	InfoSelfServiceLoginPinLabel                                 // 1010014
-	InfoSelfServiceLoginLinkCredentials                          // 1010014
+	InfoSelfServiceLoginLinkCredentials                          // 1010015
 )
 
 const (
@@ -121,6 +121,7 @@ const (
 	ErrorValidationCodeSMSSpam
 	ErrorValidationOIDCUserNotFound
 	ErrorValidationInvalidPin
+	ErrorValidationSAMLProviderNotFound
 )
 
 const (

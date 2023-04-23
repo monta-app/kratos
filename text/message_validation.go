@@ -203,3 +203,12 @@ func NewErrorValidationInvalidPin() *Message {
 		Context: context(nil),
 	}
 }
+
+func NewErrorValidationSAMLProviderNotFound() *Message {
+	return &Message{
+		ID:      ErrorValidationSAMLProviderNotFound,
+		Text:    "SAML Provider is unknown or has not been configured",
+		Type:    Error,
+		Context: context(nil),
+	}
+}
