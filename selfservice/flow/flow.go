@@ -98,6 +98,7 @@ func GetWebViewRedirectLocation(r *http.Request, f Flow, conf *config.Config, st
 	if msg != nil {
 		query.Set("code", strconv.Itoa(int(msg.ID)))
 		query.Set("message", msg.Text)
+		query.Set("flow", f.GetID().String()) // webview flow needs this
 		returnTo.RawQuery = query.Encode()
 	}
 	returnTo.Path = path.Join(returnTo.Path, "kerr")

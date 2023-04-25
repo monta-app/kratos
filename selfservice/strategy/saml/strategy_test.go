@@ -316,7 +316,7 @@ func TestStrategy(t *testing.T) {
 		password := "lwkj52sdkjf"
 		var i *identity.Identity
 
-		t.Run("case=create password identity", func(t *testing.T) {
+		createPasswordIdentity := func(t *testing.T) {
 			var err error
 			i, _, err = reg.PrivilegedIdentityPool().FindByCredentialsIdentifier(
 				context.Background(),
@@ -339,12 +339,10 @@ func TestStrategy(t *testing.T) {
 			i.Traits = identity.Traits(`{"email":"` + email + `"}`)
 
 			require.NoError(t, reg.PrivilegedIdentityPool().CreateIdentity(context.Background(), i))
-		})
+		}
 
-		c := NewTestClient(t, nil)
-		var flowID uuid.UUID
-		t.Run("case=should fail login", func(t *testing.T) {
-			f := newLoginFlow(t, returnTS.URL, "", time.Minute)
+		startFlowAndTryToLogin := func(t *testing.T, c *http.Client, returnToURL string, statusCode int) (*http.Response, []byte, *login.Flow) {
+			f := newLoginFlow(t, returnTS.URL, returnToURL, time.Minute)
 			action := afv(t, f.ID, providerId)
 
 			//Post to kratos to initiate SAML flow
@@ -367,48 +365,110 @@ func TestStrategy(t *testing.T) {
 			res, body = makeRequestWithClient(t, urlAcs, url.Values{
 				"SAMLResponse": []string{SAMLResponse},
 				"RelayState":   []string{relayState},
-			}, c, 200)
+			}, c, statusCode)
+			return res, body, f
+		}
 
-			aue(t, res, body, "An account with the same identifier (email, phone, username, ...) exists already.")
-			assert.NotEmpty(t, gjson.GetBytes(body,
-				fmt.Sprintf("ui.nodes.#(attributes.value==\"%s\")",
-					node.LoginAndLinkCredentials)).String(),
-				"%s", body)
-			flowID, _ = uuid.FromString(gjson.GetBytes(body, "id").String())
-		})
-
-		var loginFlow *login.Flow
-
-		t.Run("case=should start new login flow", func(t *testing.T) {
-			action := afv(t, flowID, providerId)
-
-			res, body := makeRequestWithClient(t, action, url.Values{
-				"method": []string{node.LoginAndLinkCredentials},
-			}, c, 200)
-			require.Contains(t, res.Request.URL.String(), uiTS.URL, "status: %d, body: %s", res.StatusCode, body)
-			assert.Contains(t, gjson.GetBytes(body, "ui.messages.0.text").String(),
-				"New credentials will be linked to existing account after login.", "%s", body)
-			loginFlow, _ = reg.LoginFlowPersister().GetLoginFlow(context.Background(), uuid.FromStringOrNil(gjson.GetBytes(body, "id").String()))
-			assert.NotNil(t, loginFlow, "%s", body)
-		})
-
-		t.Run("case=should link saml credentials to existing identity", func(t *testing.T) {
-			res, body := makeRequestWithClient(t, loginFlow.UI.Action, url.Values{
-				"csrf_token": {loginFlow.CSRFToken},
-				"method":     {"password"},
-				"identifier": {email},
-				"password":   {password},
-			}, c, 200)
-			assert.Contains(t, res.Request.URL.String(), returnTS.URL, "%s", body)
-			assert.Equal(t, email, gjson.GetBytes(body, "identity.traits.email").String(), "%s", body)
-			var err error
-			i, err = reg.PrivilegedIdentityPool().GetIdentityConfidential(ctx, i.ID)
+		checkCredentialsLinked := func(t *testing.T, isAPI bool, identityID uuid.UUID, body string) {
+			identityConfidential, err := reg.PrivilegedIdentityPool().GetIdentityConfidential(ctx, identityID)
 			require.NoError(t, err)
-			assert.NotEmpty(t, i.Credentials["saml"], "%+v", i.Credentials)
-			assert.Equal(t, "TestStrategyProvider", gjson.GetBytes(i.Credentials["saml"].Config,
+			assert.NotEmpty(t, identityConfidential.Credentials["saml"], "%+v", identityConfidential.Credentials)
+			assert.Equal(t, "TestStrategyProvider", gjson.GetBytes(identityConfidential.Credentials["saml"].Config,
 				"providers.0.samlProvider").String(),
-				"%s", string(i.Credentials["saml"].Config[:]))
-			assert.Equal(t, "saml", gjson.GetBytes(body, "authentication_methods.0.method").String(), "%s", body)
+				"%s", string(identityConfidential.Credentials["saml"].Config[:]))
+			path := ""
+			if isAPI {
+				path = "session.authentication_methods.0.method"
+			} else {
+				path = "authentication_methods.0.method"
+			}
+			assert.Equal(t, "saml", gjson.Get(body, path).String(), "%s", body)
+		}
+
+		t.Run("case=browser", func(t *testing.T) {
+			createPasswordIdentity(t)
+			c := NewTestClient(t, nil)
+			var flowID uuid.UUID
+			t.Run("case=should fail login", func(t *testing.T) {
+				res, body, _ := startFlowAndTryToLogin(t, c, "", 200)
+
+				aue(t, res, body, "An account with the same identifier (email, phone, username, ...) exists already.")
+				assert.NotEmpty(t, gjson.GetBytes(body,
+					fmt.Sprintf("ui.nodes.#(attributes.value==\"%s\")",
+						node.LoginAndLinkCredentials)).String(),
+					"%s", body)
+				flowID, _ = uuid.FromString(gjson.GetBytes(body, "id").String())
+			})
+
+			var loginFlow *login.Flow
+
+			t.Run("case=should start new browser login flow", func(t *testing.T) {
+				action := afv(t, flowID, providerId)
+
+				res, body := makeRequestWithClient(t, action, url.Values{
+					"method": []string{node.LoginAndLinkCredentials},
+				}, c, 200)
+				require.Contains(t, res.Request.URL.String(), uiTS.URL, "status: %d, body: %s", res.StatusCode, body)
+				assert.Contains(t, gjson.GetBytes(body, "ui.messages.0.text").String(),
+					"New credentials will be linked to existing account after login.", "%s", body)
+				loginFlow, _ = reg.LoginFlowPersister().GetLoginFlow(context.Background(), uuid.FromStringOrNil(gjson.GetBytes(body, "id").String()))
+				assert.NotNil(t, loginFlow, "%s", body)
+			})
+
+			t.Run("case=should link saml credentials to existing identity", func(t *testing.T) {
+				res, body := makeRequestWithClient(t, loginFlow.UI.Action, url.Values{
+					"csrf_token": {loginFlow.CSRFToken},
+					"method":     {"password"},
+					"identifier": {email},
+					"password":   {password},
+				}, c, 200)
+				assert.Contains(t, res.Request.URL.String(), returnTS.URL, "%s", body)
+				assert.Equal(t, email, gjson.GetBytes(body, "identity.traits.email").String(), "%s", body)
+
+				checkCredentialsLinked(t, false, i.ID, string(body))
+			})
+		})
+
+		t.Run("case=webview", func(t *testing.T) {
+			createPasswordIdentity(t)
+
+			cj, err := cookiejar.New(&cookiejar.Options{})
+			require.NoError(t, err)
+			client := &http.Client{
+				Jar: cj,
+				CheckRedirect: func(req *http.Request, via []*http.Request) error {
+					if strings.HasSuffix(req.URL.Path, "/kerr") {
+						assert.Equal(t, strconv.Itoa(int(text.ErrorValidationDuplicateCredentials)), req.URL.Query().Get("code"), "%s", req.URL.String())
+						return http.ErrUseLastResponse
+					}
+					return nil
+				},
+			}
+
+			var linkCredentialsFlow *login.Flow
+			t.Run("case=should fail login", func(t *testing.T) {
+				res, _, f := startFlowAndTryToLogin(t, client, webviewRedirectURI, 303)
+				location, err := res.Location()
+				assert.NoError(t, err)
+				assert.True(t, strings.HasSuffix(location.Path, "/kerr"), "%v", res)
+				assert.Equal(t, f.ID.String(), location.Query().Get("flow"), "%s", location)
+				linkCredentialsFlow = f
+			})
+
+			t.Run("case=should start new api login flow and link saml credentials to existing identity", func(t *testing.T) {
+				var values = func(v url.Values) {
+					v.Set("identifier", email)
+					v.Set("password", password)
+					v.Set("linkCredentialsFlow", linkCredentialsFlow.ID.String())
+				}
+				body := testhelpers.SubmitLoginForm(t, true, nil, ts, values,
+					false, false, http.StatusOK, ts.URL+login.RouteSubmitFlow)
+				assert.Equal(t, email, gjson.Get(body, "session.identity.traits.email").String(), "%s", body)
+				st := gjson.Get(body, "session_token").String()
+				assert.NotEmpty(t, st, "%s", body)
+
+				checkCredentialsLinked(t, true, i.ID, body)
+			})
 		})
 	})
 }
