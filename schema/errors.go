@@ -313,3 +313,13 @@ func NewInvalidPinError() error {
 		Messages: new(text.Messages).Add(text.NewErrorValidationInvalidPin()),
 	})
 }
+
+func NewLinkedCredentialsDoNotMatch() error {
+	return errors.WithStack(&ValidationError{
+		ValidationError: &jsonschema.ValidationError{
+			Message:     `linked credentials do not match`,
+			InstancePtr: "#/",
+		},
+		Messages: new(text.Messages).Add(text.NewErrorValidationLoginLinkedCredentialsDoNotMatch()),
+	})
+}

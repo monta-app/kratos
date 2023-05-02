@@ -201,3 +201,11 @@ func NewInfoSelfServiceLoginLinkCredentials() *Message {
 		Context: context(nil),
 	}
 }
+
+func NewErrorValidationLoginLinkedCredentialsDoNotMatch() *Message {
+	return &Message{
+		ID:   ErrorValidationLoginLinkedCredentialsDoNotMatch,
+		Text: "Linked credentials do not match.",
+		Type: Error,
+	}
+}
