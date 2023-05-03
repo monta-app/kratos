@@ -316,6 +316,7 @@ func instantiateMiddleware(ctx context.Context, config config.Config, errorManag
 	if ok {
 		crt.MaxAge = time.Minute * 30
 		crt.SameSite = http.SameSiteNoneMode
+		samlMiddleWare.RequestTracker = crt
 	}
 
 	samlMiddlewares[pid] = samlMiddleWare
