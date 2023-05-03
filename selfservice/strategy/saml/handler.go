@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	dsig "github.com/russellhaering/goxmldsig"
@@ -310,6 +311,12 @@ func instantiateMiddleware(ctx context.Context, config config.Config, errorManag
 
 	// The issuer format is unspecified
 	samlMiddleWare.ServiceProvider.AuthnNameIDFormat = samlidp.UnspecifiedNameIDFormat
+
+	crt, ok := samlMiddleWare.RequestTracker.(samlsp.CookieRequestTracker)
+	if ok {
+		crt.MaxAge = time.Minute * 30
+		crt.SameSite = http.SameSiteNoneMode
+	}
 
 	samlMiddlewares[pid] = samlMiddleWare
 
