@@ -134,6 +134,7 @@ func init() {
 		"NewInfoSelfServiceSettingsUpdateLinkSAML":                text.NewInfoSelfServiceSettingsUpdateLinkSAML(),
 		"NewInfoSelfServiceSettingsUpdateUnlinkSAML":              text.NewInfoSelfServiceSettingsUpdateUnlinkSAML("{provider}"),
 		"NewInfoSelfServiceLoginLinkCredentials":                  text.NewInfoSelfServiceLoginLinkCredentials(),
+		"NewErrorValidationLoginLinkedCredentialsDoNotMatch":      text.NewErrorValidationLoginLinkedCredentialsDoNotMatch(),
 		"NewErrorValidationSAMLProviderNotFound":                  text.NewErrorValidationSAMLProviderNotFound(),
 	}
 }

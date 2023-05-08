@@ -6,7 +6,6 @@ package login
 import (
 	_ "embed"
 	"encoding/json"
-	"fmt"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"net/http"
@@ -753,11 +752,6 @@ continueLogin:
 			sess = session.NewInactiveSession()
 		}
 
-		if err := h.linkCredentials(r, sess, interim, f); err != nil {
-			h.d.LoginFlowErrorHandler().WriteFlowError(w, r, f, group, err)
-			return
-		}
-
 		method := ss.CompletedAuthenticationMethod(r.Context())
 		sess.CompletedLoginFor(method.Method, method.AAL)
 		i = interim
@@ -778,72 +772,4 @@ continueLogin:
 		h.d.LoginFlowErrorHandler().WriteFlowError(w, r, f, node.DefaultGroup, err)
 		return
 	}
-}
-
-func (h *Handler) linkCredentials(r *http.Request, s *session.Session, i *identity.Identity, f *Flow) error {
-	var lc flow.RegistrationDuplicateCredentials
-
-	var p struct {
-		FlowID string `json:"linkCredentialsFlow" form:"linkCredentialsFlow"`
-	}
-
-	if err := h.hd.Decode(r, &p,
-		decoderx.HTTPDecoderSetValidatePayloads(true),
-		decoderx.MustHTTPRawJSONSchemaCompiler(linkCredentialsSchema),
-		decoderx.HTTPDecoderJSONFollowsFormFormat()); err != nil {
-		return err
-	}
-
-	if p.FlowID != "" {
-		linkCredentialsFlowID, innerErr := uuid.FromString(p.FlowID)
-		if innerErr != nil {
-			return innerErr
-		}
-		linkCredentialsFlow, innerErr := h.d.LoginFlowPersister().GetLoginFlow(r.Context(), linkCredentialsFlowID)
-		if innerErr != nil {
-			return innerErr
-		}
-		innerErr = h.getInternalContextLinkCredentials(linkCredentialsFlow, flow.InternalContextDuplicateCredentialsPath, &lc)
-		if innerErr != nil {
-			return innerErr
-		}
-	}
-
-	if lc.CredentialsType == "" {
-		err := h.getInternalContextLinkCredentials(f, flow.InternalContextLinkCredentialsPath, &lc)
-		if err != nil {
-			return err
-		}
-	}
-
-	if lc.CredentialsType != "" {
-		strategy, err := h.d.AllLoginStrategies().Strategy(lc.CredentialsType)
-		if err != nil {
-			return err
-		}
-
-		linkableStrategy, ok := strategy.(LinkableStrategy)
-		if !ok {
-			return errors.New(fmt.Sprintf("Strategy is not linkable: %T", linkableStrategy))
-		}
-
-		if err := linkableStrategy.Link(r.Context(), i, lc.CredentialsConfig); err != nil {
-			return err
-		}
-
-		method := strategy.CompletedAuthenticationMethod(r.Context())
-		s.CompletedLoginFor(method.Method, method.AAL)
-	}
-
-	return nil
-}
-
-func (h *Handler) getInternalContextLinkCredentials(f *Flow, internalContextPath string, lc *flow.RegistrationDuplicateCredentials) error {
-	internalContextLinkCredentials := gjson.GetBytes(f.InternalContext, internalContextPath)
-	if internalContextLinkCredentials.IsObject() {
-		if err := json.Unmarshal([]byte(internalContextLinkCredentials.Raw), lc); err != nil {
-			return err
-		}
-	}
-	return nil
 }
