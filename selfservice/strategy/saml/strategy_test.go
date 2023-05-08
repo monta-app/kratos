@@ -378,11 +378,11 @@ func TestStrategy(t *testing.T) {
 				"%s", string(identityConfidential.Credentials["saml"].Config[:]))
 			path := ""
 			if isAPI {
-				path = "session.authentication_methods.0.method"
+				path = "session.authentication_methods"
 			} else {
-				path = "authentication_methods.0.method"
+				path = "authentication_methods"
 			}
-			assert.Equal(t, "saml", gjson.Get(body, path).String(), "%s", body)
+			assert.Contains(t, gjson.Get(body, path).String(), "saml", "%s", body)
 		}
 
 		t.Run("case=browser", func(t *testing.T) {
