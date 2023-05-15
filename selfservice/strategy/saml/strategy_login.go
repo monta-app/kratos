@@ -68,8 +68,8 @@ func (s *Strategy) processLogin(w http.ResponseWriter, r *http.Request, a *login
 		return nil, s.handleError(w, r, a, provider.Config().ID, nil, errors.WithStack(herodot.ErrInternalServerError.WithReason("The SAML credentials could not be decoded properly").WithDebug(err.Error())))
 	}
 
-	sess := session.NewInactiveSession()                                  // Creation of an inactive session
-	sess.CompletedLoginFor(s.ID(), identity.AuthenticatorAssuranceLevel1) // Add saml to the Authentication Method References
+	sess := session.NewInactiveSession()                                                                    // Creation of an inactive session
+	sess.CompletedLoginForWithProvider(s.ID(), identity.AuthenticatorAssuranceLevel1, provider.Config().ID) // Add saml to the Authentication Method References
 
 	if err := s.d.LoginHookExecutor().PostLoginHook(w, r, node.SAMLGroup, a, i, sess); err != nil {
 		return nil, s.handleError(w, r, a, provider.Config().ID, nil, err)

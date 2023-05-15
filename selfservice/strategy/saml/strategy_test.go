@@ -231,83 +231,97 @@ func TestStrategy(t *testing.T) {
 		})
 	})
 
-	t.Run("case=login without registered account", func(t *testing.T) {
+	t.Run("case=login without registered account and then login again", func(t *testing.T) {
 		t.Run("case=browser", func(t *testing.T) {
 			email = "user1@example.com"
-			f := newLoginFlow(t, returnTS.URL, "", time.Minute)
-			action := afv(t, f.ID, providerId)
 
-			client := NewTestClient(t, nil)
+			doLogin := func(t *testing.T) {
+				f := newLoginFlow(t, returnTS.URL, "", time.Minute)
+				action := afv(t, f.ID, providerId)
 
-			//Post to kratos to initiate SAML flow
-			res, body := makeRequestWithClient(t, action, url.Values{
-				"method":       []string{"saml"},
-				"samlProvider": []string{providerId},
-			}, client, 200)
+				client := NewTestClient(t, nil)
 
-			//Post to identity provider UI
-			res, body = makeRequestWithClient(t, res.Request.URL.String(), url.Values{
-				"username": []string{"user1"},
-				"password": []string{"user1pass"},
-			}, client, 200)
+				//Post to kratos to initiate SAML flow
+				res, body := makeRequestWithClient(t, action, url.Values{
+					"method":       []string{"saml"},
+					"samlProvider": []string{providerId},
+				}, client, 200)
 
-			//Extract SAML response from body returned by identity provider
-			SAMLResponse := getValueByName(body, "SAMLResponse")
-			relayState := getValueByName(body, "RelayState")
+				//Post to identity provider UI
+				res, body = makeRequestWithClient(t, res.Request.URL.String(), url.Values{
+					"username": []string{"user1"},
+					"password": []string{"user1pass"},
+				}, client, 200)
 
-			//Post SAML response to kratos
-			res, body = makeRequestWithClient(t, urlAcs, url.Values{
-				"SAMLResponse": []string{SAMLResponse},
-				"RelayState":   []string{relayState},
-			}, client, 200)
+				//Extract SAML response from body returned by identity provider
+				SAMLResponse := getValueByName(body, "SAMLResponse")
+				relayState := getValueByName(body, "RelayState")
 
-			ai(t, res, body)
+				//Post SAML response to kratos
+				res, body = makeRequestWithClient(t, urlAcs, url.Values{
+					"SAMLResponse": []string{SAMLResponse},
+					"RelayState":   []string{relayState},
+				}, client, 200)
+
+				ai(t, res, body)
+				assert.Equal(t, providerId, gjson.GetBytes(body, "authentication_methods.0.provider").String(), "%s", body)
+			}
+
+			doLogin(t)
+			doLogin(t)
 		})
 
 		t.Run("case=webview", func(t *testing.T) {
 			email = "user2@example.com"
-			f := newLoginFlow(t, returnTS.URL, webviewRedirectURI, time.Minute)
-			action := afv(t, f.ID, providerId)
 
-			cj, err := cookiejar.New(&cookiejar.Options{})
-			require.NoError(t, err)
-			client := &http.Client{
-				Jar: cj,
-				CheckRedirect: func(req *http.Request, via []*http.Request) error {
-					if strings.HasSuffix(req.URL.Path, "/success") {
-						assert.True(t, req.URL.Query().Has("session_token"))
-						return http.ErrUseLastResponse
-					}
-					return nil
-				},
+			doLogin := func(t *testing.T) {
+				f := newLoginFlow(t, returnTS.URL, webviewRedirectURI, time.Minute)
+				action := afv(t, f.ID, providerId)
+
+				cj, err := cookiejar.New(&cookiejar.Options{})
+				require.NoError(t, err)
+				client := &http.Client{
+					Jar: cj,
+					CheckRedirect: func(req *http.Request, via []*http.Request) error {
+						if strings.HasSuffix(req.URL.Path, "/success") {
+							assert.True(t, req.URL.Query().Has("session_token"))
+							return http.ErrUseLastResponse
+						}
+						return nil
+					},
+				}
+
+				//Post to kratos to initiate SAML flow
+				res, body := makeRequestWithClient(t, action, url.Values{
+					"method":       []string{"saml"},
+					"samlProvider": []string{providerId},
+				}, client, 200)
+
+				//Post to identity provider UI
+				res, body = makeRequestWithClient(t, res.Request.URL.String(), url.Values{
+					"username": []string{"user2"},
+					"password": []string{"user2pass"},
+				}, client, 200)
+
+				//Extract SAML response from body returned by identity provider
+				SAMLResponse := getValueByName(body, "SAMLResponse")
+				relayState := getValueByName(body, "RelayState")
+
+				//Post SAML response to kratos
+				res, body = makeRequestWithClient(t, urlAcs, url.Values{
+					"SAMLResponse": []string{SAMLResponse},
+					"RelayState":   []string{relayState},
+				}, client, 303)
+
+				location, err := res.Location()
+				assert.NoError(t, err)
+				assert.True(t, strings.HasSuffix(location.Path, "/success"), "%v", res)
+				assert.Equal(t, email, gjson.GetBytes(body, "session.identity.traits.email").String(), "%s", body)
+				assert.Equal(t, providerId, gjson.GetBytes(body, "session.authentication_methods.0.provider").String(), "%s", body)
 			}
 
-			//Post to kratos to initiate SAML flow
-			res, body := makeRequestWithClient(t, action, url.Values{
-				"method":       []string{"saml"},
-				"samlProvider": []string{providerId},
-			}, client, 200)
-
-			//Post to identity provider UI
-			res, body = makeRequestWithClient(t, res.Request.URL.String(), url.Values{
-				"username": []string{"user2"},
-				"password": []string{"user2pass"},
-			}, client, 200)
-
-			//Extract SAML response from body returned by identity provider
-			SAMLResponse := getValueByName(body, "SAMLResponse")
-			relayState := getValueByName(body, "RelayState")
-
-			//Post SAML response to kratos
-			res, body = makeRequestWithClient(t, urlAcs, url.Values{
-				"SAMLResponse": []string{SAMLResponse},
-				"RelayState":   []string{relayState},
-			}, client, 303)
-
-			location, err := res.Location()
-			assert.NoError(t, err)
-			assert.True(t, strings.HasSuffix(location.Path, "/success"), "%v", res)
-			assert.Equal(t, email, gjson.GetBytes(body, "session.identity.traits.email").String(), "%s", body)
+			doLogin(t)
+			doLogin(t)
 		})
 	})
 
