@@ -532,6 +532,7 @@ func TestStrategy(t *testing.T) {
 				res, body := makeRequest(t, "valid", action, url.Values{})
 				ai(t, res, body)
 				expectTokens(t, "valid", body)
+				assert.Equal(t, "valid", gjson.GetBytes(body, "authentication_methods.0.provider").String(), "%s", body)
 			})
 
 			t.Run("case=should pass login", func(t *testing.T) {
@@ -540,6 +541,7 @@ func TestStrategy(t *testing.T) {
 				res, body := makeRequest(t, "valid", action, url.Values{})
 				ai(t, res, body)
 				expectTokens(t, "valid", body)
+				assert.Equal(t, "valid", gjson.GetBytes(body, "authentication_methods.0.provider").String(), "%s", body)
 			})
 		})
 	})
@@ -573,6 +575,7 @@ func TestStrategy(t *testing.T) {
 				action := afv(t, flowId, "valid")
 				res, body := makeRequest(t, "valid", action, url.Values{})
 				ai(t, res, body)
+				assert.Equal(t, "valid", gjson.GetBytes(body, "authentication_methods.0.provider").String(), "%s", body)
 			})
 		})
 	})
