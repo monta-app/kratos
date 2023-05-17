@@ -138,6 +138,7 @@ func TestStrategy(t *testing.T) {
 	}
 
 	var makeRequestWithCookieJar = func(t *testing.T, provider string, action string, fv url.Values, jar *cookiejar.Jar) (*http.Response, []byte) {
+		fv.Set("method", "oidc")
 		fv.Set("provider", provider)
 		res, err := testhelpers.NewClientWithCookieJar(t, jar, false).PostForm(action, fv)
 		require.NoError(t, err, action)
@@ -218,6 +219,34 @@ func TestStrategy(t *testing.T) {
 
 		return req
 	}
+
+	t.Run("case=should fail because method does not exist", func(t *testing.T) {
+		for k, v := range []struct {
+			action string
+			error  string
+		}{
+			{loginAction(newLoginFlow(t, returnTS.URL, time.Minute).ID), text.NewErrorValidationLoginNoStrategyFound().Text},
+			{registerAction(newRegistrationFlow(t, returnTS.URL, time.Minute).ID), text.NewErrorValidationRegistrationNoStrategyFound().Text},
+		} {
+			t.Run(fmt.Sprintf("case=%d", k), func(t *testing.T) {
+				res, err := testhelpers.NewClientWithCookieJar(t, nil, false).PostForm(v.action,
+					url.Values{
+						"method":   {"does-not-exist"},
+						"provider": {"valid"},
+					},
+				)
+				require.NoError(t, err, v.action)
+
+				body, err := io.ReadAll(res.Body)
+				require.NoError(t, res.Body.Close())
+				require.NoError(t, err)
+
+				require.Equal(t, 200, res.StatusCode, "%s: %s\n\t%s", v.action, res.Request.URL.String(), body)
+				assert.Contains(t, res.Request.URL.String(), uiTS.URL)
+				assert.Equal(t, v.error, gjson.GetBytes(body, "ui.messages.0.text").String(), "%", body)
+			})
+		}
+	})
 
 	t.Run("case=should fail because provider does not exist", func(t *testing.T) {
 		for k, v := range []string{
@@ -685,9 +714,9 @@ func TestDisabledEndpoint(t *testing.T) {
 
 	t.Run("case=should not auth when oidc method is disabled", func(t *testing.T) {
 		c := testhelpers.NewClientWithCookies(t)
+		testhelpers.SetDefaultIdentitySchema(conf, "file://stub/stub.schema.json")
 
 		t.Run("flow=settings", func(t *testing.T) {
-			testhelpers.SetDefaultIdentitySchema(conf, "file://stub/stub.schema.json")
 			c := testhelpers.NewHTTPClientWithArbitrarySessionCookie(t, reg)
 			f := testhelpers.InitializeSettingsFlowViaAPI(t, c, publicTS)
 
@@ -701,7 +730,7 @@ func TestDisabledEndpoint(t *testing.T) {
 
 		t.Run("flow=login", func(t *testing.T) {
 			f := testhelpers.InitializeLoginFlowViaAPI(t, c, publicTS, false)
-			res, err := c.PostForm(f.Ui.Action, url.Values{"provider": {"oidc"}})
+			res, err := c.PostForm(f.Ui.Action, url.Values{"method": {"oidc"}, "provider": {"oidc"}})
 			require.NoError(t, err)
 			assert.Equal(t, http.StatusNotFound, res.StatusCode)
 
@@ -711,7 +740,7 @@ func TestDisabledEndpoint(t *testing.T) {
 
 		t.Run("flow=registration", func(t *testing.T) {
 			f := testhelpers.InitializeRegistrationFlowViaAPI(t, c, publicTS)
-			res, err := c.PostForm(f.Ui.Action, url.Values{"provider": {"oidc"}})
+			res, err := c.PostForm(f.Ui.Action, url.Values{"method": {"oidc"}, "provider": {"oidc"}})
 			require.NoError(t, err)
 			assert.Equal(t, http.StatusNotFound, res.StatusCode)
 

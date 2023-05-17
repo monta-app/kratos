@@ -6,7 +6,11 @@
     "csrf_token": {
       "type": "string"
     },
-    "samlProvider": {
+    "method": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider": {
       "type": "string",
       "minLength": 1
     },

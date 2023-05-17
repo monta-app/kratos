@@ -3,6 +3,7 @@ package saml
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/ory/kratos/schema"
 	"github.com/ory/x/urlx"
 	"net/http"
 	"time"
@@ -39,7 +40,7 @@ type SubmitSelfServiceLoginFlowWithSAMLMethodBody struct {
 	// The provider to register with
 	//
 	// required: true
-	Provider string `json:"samlProvider"`
+	Provider string `json:"provider"`
 
 	// The CSRF Token
 	CSRFToken string `json:"csrf_token"`
@@ -88,6 +89,11 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 		return nil, s.handleError(w, r, f, "", nil, errors.WithStack(herodot.ErrBadRequest.WithDebug(err.Error()).WithReasonf("Unable to parse HTTP form request: %s", err.Error())))
 	}
 
+	const combinedMethod = "oidc-saml"
+	if p.Method != s.ID().String() && p.Method != combinedMethod {
+		return nil, errors.WithStack(flow.ErrStrategyNotResponsible)
+	}
+
 	var pid = p.Provider // This can come from both url query and post body
 	if pid == "" {
 		return nil, errors.WithStack(flow.ErrStrategyNotResponsible)
@@ -108,6 +114,13 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 	}
 	_, err = providersConfigCollection.ProviderConfig(pid)
 	if err != nil {
+		if e := new(schema.ValidationError); p.Method == combinedMethod && errors.As(err, &e) {
+			for _, message := range e.Messages {
+				if message.ID == text.ErrorValidationSAMLProviderNotFound {
+					return nil, errors.WithStack(flow.ErrStrategyNotResponsible)
+				}
+			}
+		}
 		return nil, err
 	}
 

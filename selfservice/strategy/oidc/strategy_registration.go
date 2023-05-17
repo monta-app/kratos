@@ -118,6 +118,10 @@ func (s *Strategy) Register(w http.ResponseWriter, r *http.Request, f *registrat
 		return errors.WithStack(flow.ErrStrategyNotResponsible)
 	}
 
+	if p.Method != s.ID().String() {
+		return errors.WithStack(flow.ErrStrategyNotResponsible)
+	}
+
 	if err := flow.MethodEnabledAndAllowed(r.Context(), s.SettingsStrategyID(), s.SettingsStrategyID(), s.d); err != nil {
 		return s.handleError(w, r, f, pid, nil, err)
 	}

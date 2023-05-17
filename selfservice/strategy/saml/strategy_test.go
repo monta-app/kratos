@@ -183,6 +183,21 @@ func TestStrategy(t *testing.T) {
 		return result
 	}
 
+	t.Run("case=should fail because method does not exist", func(t *testing.T) {
+		f := newLoginFlow(t, returnTS.URL, "", time.Minute)
+		action := afv(t, f.ID, providerId)
+
+		client := NewTestClient(t, nil)
+
+		//Post to kratos to initiate SAML flow
+		resp, body := makeRequestWithClient(t, action, url.Values{
+			"method":       []string{"does-not-exist"},
+			"samlProvider": []string{providerId},
+		}, client, 200)
+		assert.Contains(t, resp.Request.URL.String(), uiTS.URL, "%s", body)
+		assert.Equal(t, text.NewErrorValidationLoginNoStrategyFound().Text, gjson.GetBytes(body, "ui.messages.0.text").String(), "%", body)
+	})
+
 	t.Run("case=should fail because provider does not exist", func(t *testing.T) {
 		t.Run("case=browser", func(t *testing.T) {
 			f := newLoginFlow(t, returnTS.URL, "", time.Minute)
@@ -192,14 +207,15 @@ func TestStrategy(t *testing.T) {
 
 			//Post to kratos to initiate SAML flow
 			resp, body := makeRequestWithClient(t, action, url.Values{
-				"method":       []string{"saml"},
-				"samlProvider": []string{"does-not-exist"},
+				"method":   []string{"saml"},
+				"provider": []string{"does-not-exist"},
 			}, client, 200)
 			assert.Contains(t, resp.Request.URL.String(), uiTS.URL, "%s", body)
 
 			flowWithError, err := reg.LoginFlowPersister().GetLoginFlow(context.Background(), f.ID)
 			assert.NoError(t, err)
 
+			assert.NotEmpty(t, flowWithError.UI.Nodes.Find("samlProvider").Messages)
 			assert.Contains(t, flowWithError.UI.Nodes.Find("samlProvider").Messages[0].Text, "is unknown")
 		})
 
@@ -222,8 +238,8 @@ func TestStrategy(t *testing.T) {
 
 			//Post to kratos to initiate SAML flow
 			res, _ := makeRequestWithClient(t, action, url.Values{
-				"method":       []string{"saml"},
-				"samlProvider": []string{"does-not-exist"},
+				"method":   []string{"saml"},
+				"provider": []string{"does-not-exist"},
 			}, client, 303)
 			location, err := res.Location()
 			assert.NoError(t, err)
@@ -243,8 +259,8 @@ func TestStrategy(t *testing.T) {
 
 				//Post to kratos to initiate SAML flow
 				res, body := makeRequestWithClient(t, action, url.Values{
-					"method":       []string{"saml"},
-					"samlProvider": []string{providerId},
+					"method":   []string{"saml"},
+					"provider": []string{providerId},
 				}, client, 200)
 
 				//Post to identity provider UI
@@ -293,8 +309,8 @@ func TestStrategy(t *testing.T) {
 
 				//Post to kratos to initiate SAML flow
 				res, body := makeRequestWithClient(t, action, url.Values{
-					"method":       []string{"saml"},
-					"samlProvider": []string{providerId},
+					"method":   []string{"saml"},
+					"provider": []string{providerId},
 				}, client, 200)
 
 				//Post to identity provider UI
@@ -361,8 +377,8 @@ func TestStrategy(t *testing.T) {
 
 			//Post to kratos to initiate SAML flow
 			res, body := makeRequestWithClient(t, action, url.Values{
-				"method":       []string{"saml"},
-				"samlProvider": []string{providerId},
+				"method":   []string{"saml"},
+				"provider": []string{providerId},
 			}, c, 200)
 
 			//Post to identity provider UI
@@ -483,6 +499,38 @@ func TestStrategy(t *testing.T) {
 
 				checkCredentialsLinked(t, true, i.ID, body)
 			})
+		})
+	})
+
+	t.Run("case=method is oidc-saml", func(t *testing.T) {
+		t.Run("case=should fail with 'no strategy' if provider is not found", func(t *testing.T) {
+			f := newLoginFlow(t, returnTS.URL, "", time.Minute)
+			action := afv(t, f.ID, providerId)
+
+			client := NewTestClient(t, nil)
+
+			//Post to kratos to initiate SAML flow
+			res, body := makeRequestWithClient(t, action, url.Values{
+				"method":   []string{"oidc-saml"},
+				"provider": []string{"does-not-exist"},
+			}, client, 200)
+			assert.Contains(t, res.Request.URL.String(), uiTS.URL, "%s", body)
+
+			assert.Equal(t, text.NewErrorValidationLoginNoStrategyFound().Text, gjson.GetBytes(body, "ui.messages.0.text").String(), "%s", body)
+		})
+
+		t.Run("case=should redirect to IdP if provider is found", func(t *testing.T) {
+			f := newLoginFlow(t, returnTS.URL, "", time.Minute)
+			action := afv(t, f.ID, providerId)
+
+			client := NewTestClient(t, nil)
+
+			//Post to kratos to initiate SAML flow
+			res, _ := makeRequestWithClient(t, action, url.Values{
+				"method":   []string{"oidc-saml"},
+				"provider": []string{providerId},
+			}, client, 200)
+			assert.Contains(t, res.Request.URL.String(), remoteIDP)
 		})
 	})
 }
