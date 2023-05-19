@@ -29,3 +29,4 @@ Commits here are allowed only to the `devops` branch.
 | monta-app/kratos/upgrade-kratos/feature/webview | Changes merged into feature/oidc-api and saml-webview. Should be deleted when one of these branches is merged into ory/kratos/master |
 | feature/link-credentials-when-login             | https://github.com/ory/kratos/pull/3222                                                                                              |
 | feature/core-2073                               | https://github.com/ory/kratos/pull/3283                                                                                              |
+| feature/admin-api-providers                     | https://github.com/ory/kratos/pull/3286                                                                                             |
