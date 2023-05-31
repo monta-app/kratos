@@ -174,5 +174,7 @@ type WithSecretHidden Configuration
 func (c WithSecretHidden) MarshalJSON() ([]byte, error) {
 	type localConfiguration Configuration
 	c.ClientSecret = ""
+	c.PrivateKeyId = ""
+	c.PrivateKey = ""
 	return json.Marshal(localConfiguration(c))
 }
