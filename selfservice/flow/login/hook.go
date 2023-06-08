@@ -189,35 +189,42 @@ func (e *HookExecutor) PostLoginHook(w http.ResponseWriter, r *http.Request, g n
 		return nil
 	}
 
-	if err := e.d.SessionManager().UpsertAndIssueCookie(r.Context(), w, r, s); err != nil {
-		return errors.WithStack(err)
+	isWebView, err := flow.IsWebViewFlow(r.Context(), e.d.Config(), a)
+	if err != nil {
+		return err
 	}
 
-	e.d.Audit().
-		WithRequest(r).
-		WithField("identity_id", i.ID).
-		WithField("session_id", s.ID).
-		Info("Identity authenticated successfully and was issued an Ory Kratos Session Cookie.")
-	trace.SpanFromContext(r.Context()).AddEvent(
-		semconv.EventSessionIssued,
-		trace.WithAttributes(
-			attribute.String(semconv.AttrIdentityID, i.ID.String()),
-			attribute.String(semconv.AttrNID, i.NID.String()),
-			attribute.String("flow", string(flow.TypeBrowser)),
-		),
-	)
-
-	if x.IsJSONRequest(r) {
-		// Browser flows rely on cookies. Adding tokens in the mix will confuse consumers.
-		s.Token = ""
-
-		response := &APIFlowResponse{Session: s}
-		if required, _ := e.requiresAAL2(r, s, a); required {
-			// If AAL is not satisfied, we omit the identity to preserve the user's privacy in case of a phishing attack.
-			response.Session.Identity = nil
+	if !isWebView {
+		if err := e.d.SessionManager().UpsertAndIssueCookie(r.Context(), w, r, s); err != nil {
+			return errors.WithStack(err)
 		}
-		e.d.Writer().Write(w, r, response)
-		return nil
+
+		e.d.Audit().
+			WithRequest(r).
+			WithField("identity_id", i.ID).
+			WithField("session_id", s.ID).
+			Info("Identity authenticated successfully and was issued an Ory Kratos Session Cookie.")
+		trace.SpanFromContext(r.Context()).AddEvent(
+			semconv.EventSessionIssued,
+			trace.WithAttributes(
+				attribute.String(semconv.AttrIdentityID, i.ID.String()),
+				attribute.String(semconv.AttrNID, i.NID.String()),
+				attribute.String("flow", string(flow.TypeBrowser)),
+			),
+		)
+
+		if x.IsJSONRequest(r) {
+			// Browser flows rely on cookies. Adding tokens in the mix will confuse consumers.
+			s.Token = ""
+
+			response := &APIFlowResponse{Session: s}
+			if required, _ := e.requiresAAL2(r, s, a); required {
+				// If AAL is not satisfied, we omit the identity to preserve the user's privacy in case of a phishing attack.
+				response.Session.Identity = nil
+			}
+			e.d.Writer().Write(w, r, response)
+			return nil
+		}
 	}
 
 	// If we detect that whoami would require a higher AAL, we redirect!
@@ -238,10 +245,6 @@ func (e *HookExecutor) PostLoginHook(w http.ResponseWriter, r *http.Request, g n
 		finalReturnTo = rt
 	}
 
-	isWebView, err := flow.IsWebViewFlow(r.Context(), e.d.Config(), a)
-	if err != nil {
-		return err
-	}
 	if isWebView {
 		response := &APIFlowResponse{Session: s.Declassify(), Token: s.Token}
 		required, err := e.requiresAAL2(r, s, a)

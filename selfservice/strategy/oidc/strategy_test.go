@@ -489,6 +489,10 @@ func TestStrategy(t *testing.T) {
 				CheckRedirect: func(req *http.Request, via []*http.Request) error {
 					if strings.HasSuffix(req.URL.Path, "/success") {
 						assert.True(t, req.URL.Query().Has("session_token"))
+						cookies := cj.Cookies(req.URL)
+						for _, cookie := range cookies {
+							assert.NotEqual(t, "ory_kratos_session", cookie.Name)
+						}
 						return http.ErrUseLastResponse
 					}
 					return nil
