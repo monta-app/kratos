@@ -4,6 +4,7 @@
 package hook
 
 import (
+	"github.com/ory/x/decoderx"
 	"net/http"
 
 	"github.com/pkg/errors"
@@ -32,7 +33,13 @@ type (
 		code.AuthenticationServiceProvider
 	}
 	Verifier struct {
-		r verifierDependencies
+		r  verifierDependencies
+		dx *decoderx.HTTP
+	}
+
+	brandingBody struct {
+		// A branding to be applied to the email body
+		Branding string `json:"branding" form:"branding"`
 	}
 )
 
@@ -49,8 +56,18 @@ func (e *Verifier) ExecuteSettingsPostPersistHook(w http.ResponseWriter, r *http
 }
 
 func (e *Verifier) do(r *http.Request, i *identity.Identity, f flow.Flow) error {
-	// This is called after the identity has been created so we can safely assume that all addresses are available
+	// This is called after the identity has been created, so we can safely assume that all addresses are available
 	// already.
+
+	compiler, err := decoderx.HTTPRawJSONSchemaCompiler(verificationMethodSchema)
+	if err != nil {
+		return err
+	}
+
+	var body brandingBody
+	if err := e.dx.Decode(r, &body, compiler); err != nil {
+		return err
+	}
 
 	strategy, err := e.r.GetActiveVerificationStrategy(r.Context())
 	if err != nil {
@@ -77,7 +94,7 @@ func (e *Verifier) do(r *http.Request, i *identity.Identity, f flow.Flow) error 
 
 		switch address.Via {
 		case identity.AddressTypeEmail:
-			if err := strategy.SendVerificationEmail(r.Context(), verificationFlow, i, address); err != nil {
+			if err := strategy.SendVerificationEmail(r.Context(), verificationFlow, i, address, body.Branding); err != nil {
 				return err
 			}
 		case identity.AddressTypePhone:
