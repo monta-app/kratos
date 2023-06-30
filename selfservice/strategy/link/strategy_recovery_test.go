@@ -876,6 +876,20 @@ func TestRecovery(t *testing.T) {
 
 		check(t, expectSuccess(t, nil, false, false, values))
 	})
+
+	t.Run("description=should save branding to template data", func(t *testing.T) {
+		t.Run("type=browser", func(t *testing.T) {
+			email := "recover-with-branding@ory.sh"
+			createIdentityToRecover(t, reg, email)
+			expectSuccess(t, nil, false, false, func(v url.Values) {
+				v.Set("email", email)
+				v.Set("transient_payload", `{"branding": "brand-1"}`)
+			})
+
+			message := testhelpers.CourierExpectMessage(ctx, t, reg, email, "Recover access to your account")
+			assert.Equal(t, "brand-1", gjson.GetBytes(message.TemplateData, "transient_payload.branding").String(), "%s", message.TemplateData)
+		})
+	})
 }
 
 func TestDisabledEndpoint(t *testing.T) {
