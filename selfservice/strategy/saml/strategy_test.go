@@ -11,6 +11,7 @@ import (
 	"github.com/ory/kratos/internal/testhelpers"
 	"github.com/ory/kratos/selfservice/flow"
 	"github.com/ory/kratos/selfservice/flow/login"
+	"github.com/ory/kratos/session"
 	"github.com/ory/kratos/text"
 	"github.com/ory/kratos/ui/container"
 	"github.com/ory/kratos/ui/node"
@@ -316,8 +317,23 @@ func TestStrategy(t *testing.T) {
 				location, err := res.Location()
 				assert.NoError(t, err)
 				assert.True(t, strings.HasSuffix(location.Path, "/success"), "%v", res)
+				token := location.Query().Get("session_token")
+				assert.Equal(t, gjson.GetBytes(body, "session_token").String(), token)
 				assert.Equal(t, email, gjson.GetBytes(body, "session.identity.traits.email").String(), "%s", body)
 				assert.Equal(t, providerId, gjson.GetBytes(body, "session.authentication_methods.0.provider").String(), "%s", body)
+
+				clientWithToken := http.Client{
+					Transport: x.NewTransportWithHeader(http.Header{
+						"Authorization": {"Bearer " + token},
+					}),
+				}
+
+				res, err = clientWithToken.Do(testhelpers.NewHTTPGetJSONRequest(t, ts.URL+session.RouteWhoami))
+				assert.NoError(t, err)
+				body, err = io.ReadAll(res.Body)
+				require.NoError(t, res.Body.Close())
+				require.NoError(t, err)
+				assert.Equal(t, true, gjson.GetBytes(body, "active").Bool(), "%s", body)
 			}
 
 			doLogin(t)
