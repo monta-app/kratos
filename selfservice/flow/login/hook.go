@@ -237,6 +237,23 @@ func (e *HookExecutor) PostLoginHook(w http.ResponseWriter, r *http.Request, g n
 			e.d.Writer().Write(w, r, response)
 			return nil
 		}
+	} else {
+		if err := e.d.SessionPersister().UpsertSession(r.Context(), s); err != nil {
+			return errors.WithStack(err)
+		}
+		e.d.Audit().
+			WithRequest(r).
+			WithField("session_id", s.ID).
+			WithField("identity_id", i.ID).
+			Info("Identity authenticated successfully and was issued an Ory Kratos Session Token.")
+		trace.SpanFromContext(r.Context()).AddEvent(
+			semconv.EventSessionIssued,
+			trace.WithAttributes(
+				attribute.String(semconv.AttrIdentityID, i.ID.String()),
+				attribute.String(semconv.AttrNID, i.NID.String()),
+				attribute.String("flow", string(flow.TypeBrowser)),
+			),
+		)
 	}
 
 	// If we detect that whoami would require a higher AAL, we redirect!
