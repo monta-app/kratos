@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ory/kratos/session"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -484,11 +485,13 @@ func TestStrategy(t *testing.T) {
 
 			cj, err := cookiejar.New(&cookiejar.Options{})
 			require.NoError(t, err)
+			var successToken string
 			c := &http.Client{
 				Jar: cj,
 				CheckRedirect: func(req *http.Request, via []*http.Request) error {
 					if strings.HasSuffix(req.URL.Path, "/success") {
 						assert.True(t, req.URL.Query().Has("session_token"))
+						successToken = req.URL.Query().Get("session_token")
 						cookies := cj.Cookies(req.URL)
 						for _, cookie := range cookies {
 							assert.NotEqual(t, "ory_kratos_session", cookie.Name)
@@ -519,7 +522,24 @@ func TestStrategy(t *testing.T) {
 					testhelpers.InitFlowWithReturnTo(webviewRedirectURI))
 
 				assert.NotEmpty(t, gjson.Get(body, "session_token"), "%s", body)
+				assert.Equal(t, successToken, gjson.Get(body, "session_token").String())
 				assert.NotEmpty(t, gjson.Get(body, "session"), "%s", body)
+
+				clientWithToken := http.Client{
+					Transport: x.NewTransportWithHeader(http.Header{
+						"Authorization": {"Bearer " + successToken},
+					}),
+				}
+
+				var res *http.Response
+				res, err = clientWithToken.Do(testhelpers.NewHTTPGetJSONRequest(t, ts.URL+session.RouteWhoami))
+				assert.NoError(t, err)
+				var b []byte
+				b, err = io.ReadAll(res.Body)
+				require.NoError(t, res.Body.Close())
+				require.NoError(t, err)
+				assert.Equal(t, true, gjson.GetBytes(b, "active").Bool(), "%s", b)
+
 			})
 		})
 
