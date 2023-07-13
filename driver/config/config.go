@@ -78,6 +78,7 @@ const (
 	ViperKeyCourierTemplatesVerificationValidEmail           = "courier.templates.verification.valid.email"
 	ViperKeyCourierTemplatesVerificationCodeInvalidEmail     = "courier.templates.verification_code.invalid.email"
 	ViperKeyCourierTemplatesVerificationCodeValidEmail       = "courier.templates.verification_code.valid.email"
+	ViperKeyCourierSMTPEnabled                               = "courier.smtp.enabled"
 	ViperKeyCourierSMTPFrom                                  = "courier.smtp.from_address"
 	ViperKeyCourierSMTPFromName                              = "courier.smtp.from_name"
 	ViperKeyCourierSMTPHeaders                               = "courier.smtp.headers"
@@ -264,6 +265,7 @@ type (
 		Config() *Config
 	}
 	CourierConfigs interface {
+		CourierSMTPEnabled(ctx context.Context) bool
 		CourierSMTPURL(ctx context.Context) (*url.URL, error)
 		CourierSMTPClientCertPath(ctx context.Context) string
 		CourierSMTPClientKeyPath(ctx context.Context) string
@@ -1065,6 +1067,10 @@ func (p *Config) CourierTemplatesVerificationCodeValid(ctx context.Context) *Cou
 
 func (p *Config) CourierMessageRetries(ctx context.Context) int {
 	return p.GetProvider(ctx).IntF(ViperKeyCourierMessageRetries, 5)
+}
+
+func (p *Config) CourierSMTPEnabled(ctx context.Context) bool {
+	return p.GetProvider(ctx).Bool(ViperKeyCourierSMTPEnabled)
 }
 
 func (p *Config) CourierSMTPHeaders(ctx context.Context) map[string]string {

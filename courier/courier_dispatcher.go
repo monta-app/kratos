@@ -52,7 +52,18 @@ func (c *courier) DispatchMessage(ctx context.Context, msg Message) error {
 func (c *courier) DispatchQueue(ctx context.Context) error {
 	maxRetries := c.deps.CourierConfig().CourierMessageRetries(ctx)
 
-	messages, err := c.deps.CourierPersister().NextMessages(ctx, 10)
+	var messages []Message
+	var err error
+	if !c.deps.CourierConfig().CourierSMSEnabled(ctx) {
+		t := int(MessageTypeEmail)
+		messages, err = c.deps.CourierPersister().NextMessagesWithType(ctx, &t, 10)
+	} else if !c.deps.CourierConfig().CourierSMTPEnabled(ctx) {
+		t := int(MessageTypePhone)
+		messages, err = c.deps.CourierPersister().NextMessagesWithType(ctx, &t, 10)
+	} else {
+		messages, err = c.deps.CourierPersister().NextMessages(ctx, 10)
+	}
+
 	if err != nil {
 		if errors.Is(err, ErrQueueEmpty) {
 			return nil

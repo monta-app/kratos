@@ -67,16 +67,33 @@ func (p *Persister) ListMessages(ctx context.Context, filter courier.ListCourier
 }
 
 func (p *Persister) NextMessages(ctx context.Context, limit uint8) (messages []courier.Message, err error) {
+	return p.NextMessagesWithType(ctx, nil, limit)
+}
+
+func (p *Persister) NextMessagesWithType(ctx context.Context, messageType *int, limit uint8) (messages []courier.Message, err error) {
 	ctx, span := p.r.Tracer(ctx).Tracer().Start(ctx, "persistence.sql.NextMessages")
 	defer span.End()
 
 	if err := p.Transaction(ctx, func(ctx context.Context, tx *pop.Connection) error {
 		var m []courier.Message
-		if err := tx.
-			Where("nid = ? AND status = ?",
-				p.NetworkID(ctx),
-				courier.MessageStatusQueued,
-			).
+
+		var query *pop.Query
+		if messageType == nil {
+			query = tx.
+				Where("nid = ? AND status = ?",
+					p.NetworkID(ctx),
+					courier.MessageStatusQueued,
+				)
+		} else {
+			query = tx.
+				Where("nid = ? AND status = ? AND type = ?",
+					p.NetworkID(ctx),
+					courier.MessageStatusQueued,
+					messageType,
+				)
+		}
+
+		if err := query.
 			Order("created_at ASC").
 			Limit(int(limit)).
 			All(&m); err != nil {
