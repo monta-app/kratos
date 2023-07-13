@@ -1522,7 +1522,10 @@
                   "title": "Verification Strategy",
                   "description": "The strategy to use for verification requests",
                   "type": "string",
-                  "enum": ["link", "code"],
+                  "enum": [
+                    "link",
+                    "code"
+                  ],
                   "default": "code"
                 }
               }
@@ -2064,6 +2067,11 @@
           "description": "Configures outgoing emails using the SMTP protocol.",
           "type": "object",
           "properties": {
+            "enabled": {
+              "description": "Determines if SMTP functionality is enabled",
+              "type": "boolean",
+              "default": true
+            },
             "connection_uri": {
               "title": "SMTP connection string",
               "description": "This URI will be used to connect to the SMTP server. Use the scheme smtps for implicit TLS sessions or smtp for explicit StartTLS/cleartext sessions. Please note that TLS is always enforced with certificate trust verification by default for security reasons on both schemes. With the smtp scheme you can use the query parameter (`?disable_starttls=true`) to allow cleartext sessions or (`?disable_starttls=false`) to enforce StartTLS (default behaviour). Additionally, use the query parameter to allow (`?skip_ssl_verify=true`) or disallow (`?skip_ssl_verify=false`) self-signed TLS certificates (default behaviour) on both implicit and explicit TLS sessions.",

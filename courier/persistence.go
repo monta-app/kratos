@@ -19,6 +19,7 @@ type (
 		AddMessage(context.Context, *Message) error
 
 		NextMessages(context.Context, uint8) ([]Message, error)
+		NextMessagesWithType(context.Context, *int, uint8) ([]Message, error)
 
 		SetMessageStatus(context.Context, uuid.UUID, MessageStatus) error
 
