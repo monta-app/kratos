@@ -49,9 +49,10 @@ const (
 	RouteBaseAuth     = RouteBase + "/auth"
 	RouteBaseMetadata = RouteBase + "/metadata"
 
-	RouteAcs      = RouteBaseAcs + "/:provider"
-	RouteAuth     = RouteBaseAuth + "/:provider"
-	RouteMetadata = RouteBaseMetadata + "/:provider"
+	RouteAcs                = RouteBaseAcs + "/:provider"
+	RouteAuth               = RouteBaseAuth + "/:provider"
+	RouteMetadata           = RouteBaseMetadata + "/:provider"
+	RouteProviderCollection = "/providers/saml"
 )
 
 var _ identity.ActiveCredentialsCounter = new(Strategy)
@@ -147,6 +148,11 @@ func (s *Strategy) setRoutes(r *x.RouterPublic) {
 	if handle, _, _ := r.Lookup("POST", RouteAcs); handle == nil {
 		r.POST(RouteAcs, wrappedHandleCallback)
 	} // ACS SUPPORT
+
+	if handle, _, _ := r.Lookup("GET", RouteProviderCollection); handle == nil {
+		s.d.CSRFHandler().IgnorePath(RouteProviderCollection)
+		r.GET(RouteProviderCollection, x.RedirectToAdminRoute(s.d))
+	}
 }
 
 // Get possible SAML Request IDs

@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"encoding/xml"
+	"github.com/ory/kratos/selfservice/strategy"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -73,6 +74,11 @@ func (h *Handler) RegisterPublicRoutes(router *x.RouterPublic) {
 
 	router.GET(RouteMetadata, h.serveMetadata)
 	router.GET(RouteAuth, h.loginWithIdp)
+}
+
+func (s *Strategy) setAdminRoutes(r *x.RouterAdmin) {
+	wrappedListProviders := strategy.IsDisabled(s.d, s.ID().String(), s.listProviders)
+	r.GET(RouteProviderCollection, wrappedListProviders)
 }
 
 // Handle /selfservice/methods/saml/metadata
@@ -405,4 +411,34 @@ func CreateSAMLProviderConfig(config config.Config, ctx context.Context, pid str
 	}
 
 	return providerConfig, nil
+}
+
+// swagger:route GET /admin/providers/saml provider listProviders
+//
+// # List Providers
+//
+// Lists all saml providers in the system.
+//
+//	Produces:
+//	- application/json
+//
+//	Schemes: http, https
+//
+//	Security:
+//	  oryAccessToken:
+//
+//	Responses:
+//	  200: listProviders
+//	  default: errorGeneric
+func (s *Strategy) listProviders(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	if c, err := s.Config(r.Context()); err != nil {
+		s.d.Writer().WriteError(w, r, err)
+	} else {
+		// Providers configurations using the marshaler for hiding client secret
+		l := make([]Configuration, len(c.SAMLProviders))
+		for i, configuration := range c.SAMLProviders {
+			l[i] = configuration
+		}
+		s.d.Writer().Write(w, r, l)
+	}
 }

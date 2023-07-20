@@ -143,6 +143,10 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 	return nil, errors.WithStack(flow.ErrCompletedByStrategy)
 }
 
+func (s *Strategy) RegisterAdminLoginRoutes(r *x.RouterAdmin) {
+	s.setAdminRoutes(r)
+}
+
 func (s *Strategy) PopulateLoginMethod(r *http.Request, requestedAAL identity.AuthenticatorAssuranceLevel, l *login.Flow) error {
 	if l.Type != flow.TypeBrowser {
 		return nil
