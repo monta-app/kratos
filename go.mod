@@ -23,8 +23,8 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/arbovm/levenshtein v0.0.0-20160628152529-48b4e1c0c4d0
 	github.com/avast/retry-go/v3 v3.1.1
-	github.com/benbjohnson/clock v1.1.0
 	github.com/beevik/etree v1.1.0
+	github.com/benbjohnson/clock v1.1.0
 	github.com/bradleyjkemp/cupaloy/v2 v2.8.0
 	github.com/bwmarrin/discordgo v0.23.0
 	github.com/bxcodec/faker/v3 v3.3.1
@@ -79,7 +79,6 @@ require (
 	github.com/ory/herodot v0.9.13
 	github.com/ory/hydra-client-go v1.11.9-0.20221102130300-f558e85344c8
 	github.com/ory/jsonschema/v3 v3.0.7
-	github.com/ory/kratos-client-go v0.11.0
 	github.com/ory/mail/v3 v3.0.0
 	github.com/ory/nosurf v1.2.7
 	github.com/ory/x v0.0.519
@@ -106,6 +105,7 @@ require (
 	golang.org/x/oauth2 v0.2.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/tools v0.2.0
+	google.golang.org/grpc v1.50.1
 	gotest.tools v2.2.0+incompatible
 )
 
@@ -261,7 +261,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
 	github.com/pkg/profile v1.7.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/pquerna/cachecontrol v0.1.0 // indirect
 	github.com/prometheus/client_golang v1.13.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
@@ -330,7 +329,6 @@ require (
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20221025140454-527a21cfbd71 // indirect
-	google.golang.org/grpc v1.50.1 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
@@ -343,3 +341,5 @@ require (
 	mvdan.cc/sh/v3 v3.3.0-0.dev.0.20210224101809-fb5052e7a010 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+replace github.com/ory/x => github.com/monta-app/x v0.0.299-0.20230803080659-3c6a96fc08c1
