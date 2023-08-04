@@ -335,4 +335,4 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/ory/x => github.com/monta-app/x v0.0.299-0.20230803080659-3c6a96fc08c1
+replace github.com/ory/x => github.com/monta-app/x v0.0.299-0.20230804093047-6cf5c5ecedb7
