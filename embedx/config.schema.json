@@ -1559,6 +1559,15 @@
                         "https://auth.myexample.org/"
                       ]
                     },
+                    "base_service_identity_uri": {
+                      "type": "string",
+                      "title": "Base URL for Service Identity",
+                      "description": "Can be used to interact with Service Identity and, for example, fetch OpenID Connect provider configurations.",
+                      "format": "uri",
+                      "examples": [
+                        "https://service.identity.com/"
+                      ]
+                    },
                     "providers": {
                       "title": "OpenID Connect and OAuth2 Providers",
                       "description": "A list and configuration of OAuth2 and OpenID Connect providers Ory Kratos should integrate with.",

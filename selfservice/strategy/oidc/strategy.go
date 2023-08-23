@@ -417,7 +417,7 @@ func (s *Strategy) Config(ctx context.Context) (*ConfigurationCollection, error)
 func (s *Strategy) provider(ctx context.Context, r *http.Request, id string) (Provider, error) {
 	if c, err := s.Config(ctx); err != nil {
 		return nil, err
-	} else if provider, err := c.Provider(id, s.d); err != nil {
+	} else if provider, err := c.Provider(ctx, id, s.d); err != nil {
 		return nil, err
 	} else {
 		return provider, nil
