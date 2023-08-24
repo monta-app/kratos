@@ -101,10 +101,6 @@ type Configuration struct {
 	//
 	// More information: https://openid.net/specs/openid-connect-core-1_0.html#ClaimsParameter
 	RequestedClaims json.RawMessage `json:"requested_claims"`
-
-	// List of values to check audience field of ID Token.
-	// The audience field of ID Token should be equal to one of the items in this list.
-	AllowedAudiences []string `json:"allowed_audiences"`
 }
 
 func (p Configuration) Redir(public *url.URL) string {
@@ -131,9 +127,12 @@ func (c ConfigurationCollection) Provider(ctx context.Context, id string, reg de
 			return addProvider(p, addProviderName, reg, providerNames)
 		}
 	}
-	if pc, err := getProviderConfiguration(ctx, reg.HTTPClient(ctx), c.BaseServiceIdentityURI, id); err != nil {
-		reg.Logger().WithError(err).Warn("OpenID Connect Provider Configuration wasn't found")
-	} else {
+	if c.BaseServiceIdentityURI != "" {
+		pc, err := getProviderConfiguration(ctx, reg.HTTPClient(ctx), c.BaseServiceIdentityURI, id)
+		if err != nil {
+			reg.Logger().WithError(err).Warn("OpenID Connect Provider Configuration wasn't found")
+			return nil, err
+		}
 		return addProvider(*pc, addProviderName, reg, providerNames)
 	}
 	return nil, errors.WithStack(herodot.ErrNotFound.WithReasonf(`OpenID Connect Provider "%s" is unknown or has not been configured`, id))
@@ -202,14 +201,4 @@ func getProviderConfiguration(ctx context.Context, httpClient *retryablehttp.Cli
 		return nil, err
 	}
 	return c, nil
-}
-
-type WithSecretHidden Configuration
-
-func (c WithSecretHidden) MarshalJSON() ([]byte, error) {
-	type localConfiguration Configuration
-	c.ClientSecret = ""
-	c.PrivateKeyId = ""
-	c.PrivateKey = ""
-	return json.Marshal(localConfiguration(c))
 }

@@ -47,15 +47,28 @@ func TestConfig(t *testing.T) {
 				return httpmock.NewJsonResponse(200, json.RawMessage(`{"id": "google", "provider": "google", "scope": ["profile"]}`))
 			},
 		)
+
+		var c map[string]interface{}
+		require.NoError(t, json.NewDecoder(
+			bytes.NewBufferString(`{"config":{"base_service_identity_uri": "http://external.source.example", "providers": [{"provider": "generic"}]}}`)).Decode(&c))
+		conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypeOIDC), c)
+
 		s := oidc.NewStrategy(reg)
 		collection, err := s.Config(ctx)
 		require.NoError(t, err)
-
-		collection.BaseServiceIdentityURI = "http://external.source.example"
 
 		p, err := collection.Provider(ctx, "google", reg)
 		require.NoError(t, err)
 
 		assert.Equal(t, "google", p.Config().Provider)
+	})
+
+	t.Run("case=should not try to call external source and return error", func(t *testing.T) {
+		s := oidc.NewStrategy(reg)
+		collection, err := s.Config(ctx)
+		require.NoError(t, err)
+
+		_, err = collection.Provider(ctx, "google", reg)
+		require.Error(t, err)
 	})
 }
