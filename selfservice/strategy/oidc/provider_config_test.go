@@ -42,7 +42,7 @@ func TestConfig(t *testing.T) {
 		httpmock.Activate()
 		defer httpmock.DeactivateAndReset()
 
-		httpmock.RegisterResponder("GET", "http://external.source.example/identity-provider/google",
+		httpmock.RegisterResponder("GET", "http://external.source.example/identity/provider/oidc?id=google",
 			func(req *http.Request) (*http.Response, error) {
 				return httpmock.NewJsonResponse(200, json.RawMessage(`{"id": "google", "provider": "google", "scope": ["profile"]}`))
 			},
