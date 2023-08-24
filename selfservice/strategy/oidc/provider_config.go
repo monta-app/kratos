@@ -181,10 +181,14 @@ func addProvider(p Configuration, addProviderName func(pn string) string, reg de
 }
 
 func getProviderConfiguration(ctx context.Context, httpClient *retryablehttp.Client, serviceIdentityBaseURL string, id string) (*Configuration, error) {
-	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodGet, serviceIdentityBaseURL+"/identity-provider/"+id, nil)
+	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodGet, serviceIdentityBaseURL+"/identity/provider/oidc", nil)
 	if err != nil {
 		return nil, err
 	}
+	req.URL.RawQuery = url.Values{
+		"id": {id},
+	}.Encode()
+
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
