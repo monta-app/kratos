@@ -39,9 +39,7 @@ func TestVerifier(t *testing.T) {
 		"https://www.ory.sh/",
 		bytes.NewReader([]byte("transient_payload=%7B%22branding%22%3A+%22brand-1%22%7D&branding=brand-1")),
 	)
-	if err != nil {
-		return
-	}
+	assert.NoError(t, err)
 	u.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	for k, hf := range map[string]func(*hook.Verifier, *identity.Identity, flow.Flow) error{
 		"settings": func(h *hook.Verifier, i *identity.Identity, f flow.Flow) error {
@@ -146,11 +144,9 @@ func TestPhoneVerifier(t *testing.T) {
 	u, err := http.NewRequest(
 		http.MethodPost,
 		"https://www.ory.sh/",
-		bytes.NewReader([]byte("branding=brand-1")),
+		bytes.NewReader([]byte("transient_payload=%7B%22branding%22%3A+%22brand-1%22%7D&branding=brand-1")),
 	)
-	if err != nil {
-		return
-	}
+	assert.NoError(t, err)
 	u.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	t.Run("verify phone number", func(t *testing.T) {
@@ -189,6 +185,7 @@ func TestPhoneVerifier(t *testing.T) {
 		recipients := make([]string, len(messages))
 		for k, m := range messages {
 			recipients[k] = m.Recipient
+			assert.Equal(t, "brand-1", gjson.GetBytes(m.TemplateData, "TransientPayload.branding").String(), "%v", string(m.TemplateData))
 		}
 
 		assert.Equal(t, "+18004444444", messages[0].Recipient)

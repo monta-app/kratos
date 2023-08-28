@@ -8,6 +8,7 @@ package code
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 
 	"github.com/gofrs/uuid"
 	"github.com/hashicorp/go-retryablehttp"
@@ -25,7 +26,7 @@ type Flow interface {
 }
 
 type AuthenticationService interface {
-	SendCode(ctx context.Context, flow Flow, phone string) error
+	SendCode(ctx context.Context, flow Flow, phone string, transientPayload json.RawMessage) error
 	VerifyCode(ctx context.Context, flow Flow, code string) (*Code, error)
 	DoVerify(ctx context.Context, expectedCode *Code, code string) (*Code, error)
 }
@@ -55,7 +56,12 @@ func NewCodeAuthenticationService(r dependencies) AuthenticationService {
 // SendCode
 // Sends a new code to the user in a message.
 // Returns error if the code was already sent and is not expired yet.
-func (s *authenticationServiceImpl) SendCode(ctx context.Context, flow Flow, identifier string) error {
+func (s *authenticationServiceImpl) SendCode(
+	ctx context.Context,
+	flow Flow,
+	identifier string,
+	transientPayload json.RawMessage,
+) error {
 	if err := flow.Valid(); err != nil {
 		return err
 	}
@@ -102,10 +108,14 @@ func (s *authenticationServiceImpl) SendCode(ctx context.Context, flow Flow, ide
 		}
 		if _, err := cr.QueueSMS(
 			ctx,
-			templates.NewCodeMessage(s.r, &templates.CodeMessageModel{
-				Code:             codeValue,
-				To:               identifier,
-				UseStandbySender: useStandbySender}),
+			templates.NewCodeMessage(
+				s.r,
+				&templates.CodeMessageModel{
+					Code:             codeValue,
+					To:               identifier,
+					UseStandbySender: useStandbySender,
+					TransientPayload: transientPayload,
+				}),
 		); err != nil {
 			return err
 		}

@@ -101,7 +101,7 @@ func (e *Verifier) do(r *http.Request, i *identity.Identity, f flow.Flow) error 
 				return err
 			}
 		case identity.AddressTypePhone:
-			if err := e.r.CodeAuthenticationService().SendCode(r.Context(), verificationFlow, address.Value); err != nil {
+			if err := e.r.CodeAuthenticationService().SendCode(r.Context(), verificationFlow, address.Value, body.TransientPayload); err != nil {
 				return err
 			}
 			address.Status = identity.VerifiableAddressStatusSent

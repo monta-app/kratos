@@ -125,9 +125,11 @@ func TestStrategy_Login(t *testing.T) {
 		})
 	})
 
-	var loginWithPhone = func(t *testing.T, isAPI, refresh, isSPA bool,
+	var loginWithPhone = func(
+		t *testing.T, isAPI, refresh, isSPA bool,
 		expectedStatusCode int, expectedURL string,
-		values func(url.Values)) string {
+		values func(url.Values),
+	) string {
 		f := testhelpers.InitializeLoginFlow(t, isAPI, nil, publicTS, false, false)
 
 		assert.Empty(t, getLoginNode(f, "code"))
@@ -230,6 +232,38 @@ func TestStrategy_Login(t *testing.T) {
 			assert.Equal(t, "true", gjson.Get(body, "identity.verifiable_addresses.0.verified").String())
 		})
 	})
+
+	t.Run("should save transient payload to SMS template data", func(t *testing.T) {
+		identifier := fmt.Sprintf("+45%s", fmt.Sprint(rand.Int())[0:8])
+		err, _ := createIdentity(identifier)
+		assert.NoError(t, err)
+
+		var values = func(v url.Values) {
+			v.Set("method", "code")
+			v.Set("identifier", identifier)
+			v.Set("transient_payload", `{"branding": "brand-1"}`)
+		}
+
+		var doTest = func(t *testing.T, isAPI bool) {
+			f := testhelpers.InitializeLoginFlow(t, isAPI, nil, publicTS, false, false)
+			testhelpers.SubmitLoginFormWithFlow(t, isAPI, nil, values,
+				false, http.StatusOK,
+				testhelpers.ExpectURL(isAPI, publicTS.URL+login.RouteSubmitFlow, conf.SelfServiceFlowLoginUI(ctx).String()),
+				f)
+
+			message := testhelpers.CourierExpectMessage(t, reg, identifier, "")
+			assert.Equal(t, "brand-1", gjson.GetBytes(message.TemplateData, "TransientPayload.branding").String(), "%s", message.TemplateData)
+		}
+
+		t.Run("type=browser", func(t *testing.T) {
+			doTest(t, false)
+		})
+
+		t.Run("type=api", func(t *testing.T) {
+			doTest(t, true)
+		})
+	})
+
 }
 
 func getLoginNode(f *client.LoginFlow, nodeName string) *client.UiNode {

@@ -5,8 +5,8 @@ package code
 
 import (
 	"context"
-	"github.com/ory/jsonschema/v3"
 	"encoding/json"
+	"github.com/ory/jsonschema/v3"
 	"net/http"
 	"net/url"
 	"time"
@@ -259,7 +259,7 @@ func (s *Strategy) verificationHandleFormSubmission(w http.ResponseWriter, r *ht
 		f.UI = s.createVerificationCodeForm(flow.AppendFlowTo(urlx.AppendPaths(s.deps.Config().SelfPublicURL(r.Context()), verification.RouteSubmitFlow), f.ID).String(), nil, &body.Email)
 		f.UI.Messages.Set(text.NewVerificationEmailWithCodeSent())
 	} else {
-		if err := s.deps.CodeAuthenticationService().SendCode(r.Context(), f, body.Phone); err != nil {
+		if err := s.deps.CodeAuthenticationService().SendCode(r.Context(), f, body.Phone, body.TransientPayload); err != nil {
 			return s.handleVerificationError(w, r, f, body, err)
 		}
 		f.UI.GetNodes().Upsert(

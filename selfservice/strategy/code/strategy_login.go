@@ -58,7 +58,7 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 			return nil, s.handleLoginError(w, r, f, &p, err)
 		}
 		if i != nil {
-			err := s.deps.CodeAuthenticationService().SendCode(r.Context(), f, p.Identifier)
+			err := s.deps.CodeAuthenticationService().SendCode(r.Context(), f, p.Identifier, p.TransientPayload)
 			if err != nil {
 				return nil, s.handleLoginError(w, r, f, &p, err)
 			}

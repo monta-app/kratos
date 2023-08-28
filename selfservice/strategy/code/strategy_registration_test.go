@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"testing"
@@ -49,7 +50,7 @@ func TestRegistration(t *testing.T) {
 
 		publicTS, _ := testhelpers.NewKratosServerWithRouters(t, reg, router, admin)
 		//errTS := testhelpers.NewErrorTestServer(t, reg)
-		//uiTS := testhelpers.NewRegistrationUIFlowEchoServer(t, reg)
+		uiTS := testhelpers.NewRegistrationUIFlowEchoServer(t, reg)
 		redirTS := testhelpers.NewRedirSessionEchoTS(t, reg)
 
 		// Overwrite these two to ensure that they run
@@ -299,6 +300,38 @@ func TestRegistration(t *testing.T) {
 
 		})
 
+		t.Run("should save transient payload to SMS template data", func(t *testing.T) {
+			identifier := fmt.Sprintf("+45%s", fmt.Sprint(rand.Int())[0:8])
+
+			var values = func(v url.Values) {
+				v.Set("method", "code")
+				v.Set("traits.phone", identifier)
+				v.Set("transient_payload", `{"branding": "brand-1"}`)
+			}
+
+			var doTest = func(t *testing.T, isAPI bool) {
+				cleanCourierQueue(reg)
+				hc := new(http.Client)
+				f := testhelpers.InitializeRegistrationFlow(t, isAPI, hc, publicTS, false)
+				expectedURL := uiTS.URL
+				if isAPI {
+					expectedURL = publicTS.URL + registration.RouteSubmitFlow
+				}
+				testhelpers.SubmitRegistrationFormWithFlow(t, isAPI, hc, values,
+					false, http.StatusOK, expectedURL, f)
+
+				message := testhelpers.CourierExpectMessage(t, reg, identifier, "")
+				assert.Equal(t, "brand-1", gjson.GetBytes(message.TemplateData, "TransientPayload.branding").String(), "%s", message.TemplateData)
+			}
+
+			t.Run("type=browser", func(t *testing.T) {
+				doTest(t, false)
+			})
+
+			t.Run("type=api", func(t *testing.T) {
+				doTest(t, true)
+			})
+		})
 	})
 }
 

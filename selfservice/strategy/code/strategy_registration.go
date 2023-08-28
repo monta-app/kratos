@@ -47,6 +47,8 @@ type SubmitSelfServiceRegistrationFlowWithCodeMethodBody struct {
 	//
 	// required: true
 	Method string `json:"method"`
+
+	TransientPayload json.RawMessage `json:"transient_payload" form:"transient_payload"`
 }
 
 func (s *Strategy) RegisterRegistrationRoutes(_ *x.RouterPublic) {
@@ -120,7 +122,7 @@ func (s *Strategy) Register(w http.ResponseWriter, r *http.Request, f *registrat
 			return s.handleRegistrationError(w, r, f, &p,
 				fmt.Errorf("credentials identifiers missing or more than one: %v", credentials.Identifiers))
 		}
-		err := s.deps.CodeAuthenticationService().SendCode(r.Context(), f, credentials.Identifiers[0])
+		err := s.deps.CodeAuthenticationService().SendCode(r.Context(), f, credentials.Identifiers[0], p.TransientPayload)
 		if err != nil {
 			return s.handleRegistrationError(w, r, f, &p, err)
 		}

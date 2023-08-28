@@ -5,6 +5,7 @@ package code_test
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"testing"
 	"time"
@@ -85,7 +86,7 @@ func TestAuthenticationService_SendCode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.service.SendCode(tc.context, tt.flow, tt.phone); (err != nil) != tt.wantErr {
+			if err := tt.service.SendCode(tc.context, tt.flow, tt.phone, json.RawMessage(`{}`)); (err != nil) != tt.wantErr {
 				t.Errorf("SendCode() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
