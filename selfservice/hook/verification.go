@@ -4,6 +4,7 @@
 package hook
 
 import (
+	"encoding/json"
 	"github.com/ory/x/decoderx"
 	"net/http"
 
@@ -37,7 +38,9 @@ type (
 		dx *decoderx.HTTP
 	}
 
-	brandingBody struct {
+	transientPayloadBody struct {
+		// required: false
+		TransientPayload json.RawMessage `json:"transient_payload" form:"transient_payload"`
 		// A branding to be applied to the email body
 		Branding string `json:"branding" form:"branding"`
 	}
@@ -64,7 +67,7 @@ func (e *Verifier) do(r *http.Request, i *identity.Identity, f flow.Flow) error 
 		return err
 	}
 
-	var body brandingBody
+	var body transientPayloadBody
 	if err := e.dx.Decode(r, &body, compiler); err != nil {
 		return err
 	}
@@ -94,7 +97,7 @@ func (e *Verifier) do(r *http.Request, i *identity.Identity, f flow.Flow) error 
 
 		switch address.Via {
 		case identity.AddressTypeEmail:
-			if err := strategy.SendVerificationEmail(r.Context(), verificationFlow, i, address, body.Branding); err != nil {
+			if err := strategy.SendVerificationEmail(r.Context(), verificationFlow, i, address, body.TransientPayload, body.Branding); err != nil {
 				return err
 			}
 		case identity.AddressTypePhone:
