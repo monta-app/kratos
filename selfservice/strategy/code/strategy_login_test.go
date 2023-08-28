@@ -195,7 +195,7 @@ func TestStrategy_Login(t *testing.T) {
 	})
 
 	t.Run("should pass with registered user", func(t *testing.T) {
-		identifier := fmt.Sprintf("+45%s", fmt.Sprint(rand.Int())[0:8])
+		identifier := fmt.Sprintf("+452%s", fmt.Sprint(rand.Int())[0:7])
 		conf.MustSet(ctx, config.CodeTestNumbers, []string{identifier})
 		err, createdIdentity := createIdentity(identifier)
 		assert.NoError(t, err)
@@ -234,7 +234,7 @@ func TestStrategy_Login(t *testing.T) {
 	})
 
 	t.Run("should save transient payload to SMS template data", func(t *testing.T) {
-		identifier := fmt.Sprintf("+45%s", fmt.Sprint(rand.Int())[0:8])
+		identifier := fmt.Sprintf("+452%s", fmt.Sprint(rand.Int())[0:7])
 		err, _ := createIdentity(identifier)
 		assert.NoError(t, err)
 
