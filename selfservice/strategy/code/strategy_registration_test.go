@@ -301,7 +301,7 @@ func TestRegistration(t *testing.T) {
 		})
 
 		t.Run("should save transient payload to SMS template data", func(t *testing.T) {
-			identifier := fmt.Sprintf("+45%s", fmt.Sprint(rand.Int())[0:8])
+			identifier := fmt.Sprintf("+452%s", fmt.Sprint(rand.Int())[0:7])
 
 			var values = func(v url.Values) {
 				v.Set("method", "code")
