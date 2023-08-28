@@ -22,6 +22,7 @@ var strategyFactories = map[string]authStrategyFactory{
 	"":           newNoopAuthStrategy,
 	"api_key":    newApiKeyStrategy,
 	"basic_auth": newBasicAuthStrategy,
+	"bearer":     newBearerStrategy,
 }
 
 func authStrategy(name string, config json.RawMessage) (AuthStrategy, error) {

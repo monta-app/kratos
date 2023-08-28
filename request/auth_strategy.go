@@ -5,6 +5,7 @@ package request
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -22,6 +23,10 @@ type (
 		name  string
 		value string
 		in    string
+	}
+
+	bearerStrategy struct {
+		value string
 	}
 )
 
@@ -78,4 +83,23 @@ func (c *apiKeyStrategy) apply(req *retryablehttp.Request) {
 	default:
 		req.Header.Set(c.name, c.value)
 	}
+}
+
+func newBearerStrategy(raw json.RawMessage) (AuthStrategy, error) {
+	type config struct {
+		Value string
+	}
+
+	var c config
+	if err := json.Unmarshal(raw, &c); err != nil {
+		return nil, err
+	}
+
+	return &bearerStrategy{
+		value: c.Value,
+	}, nil
+}
+
+func (c *bearerStrategy) apply(req *retryablehttp.Request) {
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.value))
 }

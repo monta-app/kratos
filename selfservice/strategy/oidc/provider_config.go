@@ -6,7 +6,7 @@ package oidc
 import (
 	"context"
 	"encoding/json"
-	"github.com/hashicorp/go-retryablehttp"
+	"github.com/ory/kratos/request"
 	"net/http"
 	"net/url"
 	"strings"
@@ -110,9 +110,9 @@ func (p Configuration) Redir(public *url.URL) string {
 }
 
 type ConfigurationCollection struct {
-	BaseRedirectURI        string          `json:"base_redirect_uri"`
-	BaseServiceIdentityURI string          `json:"base_service_identity_uri"`
-	Providers              []Configuration `json:"providers"`
+	BaseRedirectURI       string          `json:"base_redirect_uri"`
+	ProviderRequestConfig json.RawMessage `json:"request_config,omitempty"`
+	Providers             []Configuration `json:"providers"`
 }
 
 func (c ConfigurationCollection) Provider(ctx context.Context, id string, reg dependencies) (Provider, error) {
@@ -127,11 +127,10 @@ func (c ConfigurationCollection) Provider(ctx context.Context, id string, reg de
 			return addProvider(p, addProviderName, reg, providerNames)
 		}
 	}
-	if c.BaseServiceIdentityURI != "" {
-		pc, err := getProviderConfiguration(ctx, reg.HTTPClient(ctx), c.BaseServiceIdentityURI, id)
+	if len(c.ProviderRequestConfig) > 0 {
+		pc, err := c.getProviderConfiguration(ctx, id, reg)
 		if err != nil {
-			reg.Logger().WithError(err).Warn("OpenID Connect Provider Configuration wasn't found")
-			return nil, err
+			return nil, errors.WithStack(herodot.ErrNotFound.WithReasonf(`OpenID Connect Provider "%s" configuration wasn't found`, id))
 		}
 		return addProvider(*pc, addProviderName, reg, providerNames)
 	}
@@ -180,29 +179,36 @@ func addProvider(p Configuration, addProviderName func(pn string) string, reg de
 	return nil, errors.Errorf("provider type %s is not supported, supported are: %v", p.Provider, providerNames)
 }
 
-func getProviderConfiguration(ctx context.Context, httpClient *retryablehttp.Client, serviceIdentityBaseURL string, id string) (*Configuration, error) {
-	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodGet, serviceIdentityBaseURL+"/identity/provider/oidc", nil)
+func (c ConfigurationCollection) getProviderConfiguration(ctx context.Context, id string, reg dependencies) (*Configuration, error) {
+	builder, err := request.NewBuilder(c.ProviderRequestConfig, reg)
 	if err != nil {
 		return nil, err
 	}
+
+	req, err := builder.BuildRequest(ctx, nil)
 	req.URL.RawQuery = url.Values{
 		"id": {id},
 	}.Encode()
-
-	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, errors.Errorf("status code: %d", resp.StatusCode)
+
+	resp, err := reg.HTTPClient(ctx).Do(req)
+	if err != nil {
+		return nil, err
 	}
 
 	defer resp.Body.Close()
 
-	c := &Configuration{}
-	err = json.NewDecoder(resp.Body).Decode(c)
+	if resp.StatusCode >= http.StatusBadRequest {
+		return nil, errors.Errorf("status code: %d", resp.StatusCode)
+	}
+
+	config := &Configuration{}
+	err = json.NewDecoder(resp.Body).Decode(config)
 	if err != nil {
 		return nil, err
 	}
-	return c, nil
+
+	return config, nil
 }

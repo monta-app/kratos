@@ -70,3 +70,17 @@ func TestApiKeyInCookieStrategy(t *testing.T) {
 	assert.Equal(t, "my-api-key-name", cookies[0].Name)
 	assert.Equal(t, "my-api-key-value", cookies[0].Value)
 }
+
+func TestBearerInHeaderStrategy(t *testing.T) {
+	req := retryablehttp.Request{Request: &http.Request{Header: map[string][]string{}}}
+	auth := bearerStrategy{
+		value: "my-bearer-token-value",
+	}
+
+	auth.apply(&req)
+
+	require.Len(t, req.Header, 1)
+
+	actualValue := req.Header.Get("Authorization")
+	assert.Equal(t, "Bearer my-bearer-token-value", actualValue)
+}

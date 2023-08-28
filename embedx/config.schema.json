@@ -153,6 +153,31 @@
         "config"
       ]
     },
+    "webHookAuthBearerProperties": {
+      "properties": {
+        "type": {
+          "const": "bearer"
+        },
+        "config": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string",
+              "description": "The value of the bearer token"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "value"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "config"
+      ]
+    },
     "selfServiceWebHook": {
       "type": "object",
       "properties": {
@@ -1559,14 +1584,51 @@
                         "https://auth.myexample.org/"
                       ]
                     },
-                    "base_service_identity_uri": {
-                      "type": "string",
-                      "title": "Base URL for Service Identity",
-                      "description": "Can be used to interact with Service Identity and, for example, fetch OpenID Connect provider configurations.",
-                      "format": "uri",
-                      "examples": [
-                        "https://service.identity.com/"
-                      ]
+                    "request_config": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "title": "HTTP address of API endpoint",
+                          "description": "This URL will be used to connect to Service Identity v2.",
+                          "examples": [
+                            "https://example.com/identity/provider"
+                          ],
+                          "type": "string"
+                        },
+                        "method": {
+                          "type": "string",
+                          "description": "The HTTP method to use (GET, POST, etc)."
+                        },
+                        "headers": {
+                          "type": "object",
+                          "description": "The HTTP headers that must be applied to request",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "auth": {
+                          "type": "object",
+                          "title": "Auth mechanisms",
+                          "description": "Define which auth mechanism to use for auth with Service Identity v2",
+                          "oneOf": [
+                            {
+                              "$ref": "#/definitions/webHookAuthApiKeyProperties"
+                            },
+                            {
+                              "$ref": "#/definitions/webHookAuthBasicAuthProperties"
+                            },
+                            {
+                              "$ref": "#/definitions/webHookAuthBearerProperties"
+                            }
+                          ]
+                        },
+                        "additionalProperties": false
+                      },
+                      "required": [
+                        "url",
+                        "method"
+                      ],
+                      "additionalProperties": false
                     },
                     "providers": {
                       "title": "OpenID Connect and OAuth2 Providers",
