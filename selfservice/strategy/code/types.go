@@ -3,6 +3,8 @@
 
 package code
 
+import "encoding/json"
+
 // submitSelfServiceLoginFlowWithPasswordMethod is used to decode the login form payload.
 //
 // swagger:model submitSelfServiceLoginFlowWithCodeMethod
@@ -18,4 +20,6 @@ type submitSelfServiceLoginFlowWithCodeMethod struct {
 
 	// One-time code.
 	Code string `json:"code"`
+
+	TransientPayload json.RawMessage `json:"transient_payload" form:"transient_payload"`
 }

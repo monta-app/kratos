@@ -4,6 +4,8 @@
 package hook
 
 import (
+	"encoding/json"
+	"github.com/ory/x/decoderx"
 	"net/http"
 
 	"github.com/pkg/errors"
@@ -32,7 +34,11 @@ type (
 		code.AuthenticationServiceProvider
 	}
 	Verifier struct {
-		r verifierDependencies
+		r  verifierDependencies
+		dx *decoderx.HTTP
+	}
+	transientPayloadBody struct {
+		TransientPayload json.RawMessage `json:"transient_payload" form:"transient_payload"`
 	}
 )
 
@@ -51,6 +57,16 @@ func (e *Verifier) ExecuteSettingsPostPersistHook(w http.ResponseWriter, r *http
 func (e *Verifier) do(r *http.Request, i *identity.Identity, f flow.Flow) error {
 	// This is called after the identity has been created so we can safely assume that all addresses are available
 	// already.
+
+	compiler, err := decoderx.HTTPRawJSONSchemaCompiler(verificationMethodSchema)
+	if err != nil {
+		return err
+	}
+
+	var body transientPayloadBody
+	if err := e.dx.Decode(r, &body, compiler); err != nil {
+		return err
+	}
 
 	strategy, err := e.r.GetActiveVerificationStrategy(r.Context())
 	if err != nil {
@@ -81,7 +97,7 @@ func (e *Verifier) do(r *http.Request, i *identity.Identity, f flow.Flow) error 
 				return err
 			}
 		case identity.AddressTypePhone:
-			if err := e.r.CodeAuthenticationService().SendCode(r.Context(), verificationFlow, address.Value); err != nil {
+			if err := e.r.CodeAuthenticationService().SendCode(r.Context(), verificationFlow, address.Value, body.TransientPayload); err != nil {
 				return err
 			}
 			address.Status = identity.VerifiableAddressStatusSent

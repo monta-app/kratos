@@ -41,6 +41,7 @@ func TestPhoneVerification(t *testing.T) {
 	conf.MustSet(ctx, config.ViperKeySelfServiceVerificationEnabled, true)
 
 	public, _ := testhelpers.NewKratosServerWithCSRF(t, reg)
+	_ = testhelpers.NewVerificationUIFlowEchoServer(t, reg)
 
 	var identityToVerify = &identity.Identity{
 		ID:       x.NewUUID(),
@@ -153,4 +154,30 @@ func TestPhoneVerification(t *testing.T) {
 		}
 	})
 
+	t.Run("description=should save transient payload to template data", func(t *testing.T) {
+		var doTest = func(t *testing.T, client *http.Client, isAPI bool, f *client.VerificationFlow) {
+			expectSuccess(t, client, isAPI, false, f,
+				func(v url.Values) {
+					v.Set("method", "code")
+					v.Set("phone", verificationPhone)
+					v.Set("transient_payload", `{"branding": "brand-1"}`)
+				})
+			message := testhelpers.CourierExpectMessage(t, reg, verificationPhone, "")
+			assert.Equal(t, "brand-1", gjson.GetBytes(message.TemplateData, "TransientPayload.branding").String(), "%s", message.TemplateData)
+		}
+
+		for _, verificationUse := range []string{"code", "link"} {
+			t.Run("verification.use="+verificationUse, func(t *testing.T) {
+				t.Run("type=browser", func(t *testing.T) {
+					c := testhelpers.NewClientWithCookies(t)
+					f := testhelpers.InitializeVerificationFlowViaBrowser(t, c, false, public)
+					doTest(t, c, false, f)
+				})
+				t.Run("type=api", func(t *testing.T) {
+					f := testhelpers.InitializeVerificationFlowViaAPI(t, nil, public)
+					doTest(t, nil, true, f)
+				})
+			})
+		}
+	})
 }

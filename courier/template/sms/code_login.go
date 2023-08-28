@@ -20,6 +20,7 @@ type (
 		To               string
 		Code             string
 		UseStandbySender bool
+		TransientPayload json.RawMessage
 	}
 )
 
