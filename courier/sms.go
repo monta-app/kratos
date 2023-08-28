@@ -20,9 +20,10 @@ import (
 )
 
 type sendSMSRequestBody struct {
-	From string `json:"from"`
-	To   string `json:"to"`
-	Body string `json:"body"`
+	From         string          `json:"from"`
+	To           string          `json:"to"`
+	Body         string          `json:"body"`
+	TemplateData json.RawMessage `json:"template_data"`
 }
 
 type smsClient struct {
@@ -105,9 +106,10 @@ func (c *courier) dispatchSMS(ctx context.Context, msg Message) error {
 	}
 
 	req, err := builder.BuildRequest(ctx, &sendSMSRequestBody{
-		To:   msg.Recipient,
-		From: from,
-		Body: body,
+		To:           msg.Recipient,
+		From:         from,
+		Body:         body,
+		TemplateData: msg.TemplateData,
 	})
 	if err != nil {
 		return err
