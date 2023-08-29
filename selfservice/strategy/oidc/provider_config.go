@@ -110,9 +110,9 @@ func (p Configuration) Redir(public *url.URL) string {
 }
 
 type ConfigurationCollection struct {
-	BaseRedirectURI       string          `json:"base_redirect_uri"`
-	ProviderRequestConfig json.RawMessage `json:"request_config,omitempty"`
-	Providers             []Configuration `json:"providers"`
+	BaseRedirectURI        string          `json:"base_redirect_uri"`
+	ProvidersRequestConfig json.RawMessage `json:"providers_request,omitempty"`
+	Providers              []Configuration `json:"providers"`
 }
 
 func (c ConfigurationCollection) Provider(ctx context.Context, id string, reg dependencies) (Provider, error) {
@@ -127,10 +127,14 @@ func (c ConfigurationCollection) Provider(ctx context.Context, id string, reg de
 			return addProvider(p, addProviderName, reg, providerNames)
 		}
 	}
-	if len(c.ProviderRequestConfig) > 0 {
+	if len(c.ProvidersRequestConfig) > 0 {
 		pc, err := c.getProviderConfiguration(ctx, id, reg)
 		if err != nil {
-			return nil, errors.WithStack(herodot.ErrNotFound.WithReasonf(`OpenID Connect Provider "%s" configuration wasn't found`, id))
+			return nil, errors.
+				WithStack(herodot.ErrNotFound.
+					WithWrap(err).
+					WithReasonf(`OpenID Connect Provider "%s" configuration wasn't found`, id),
+				)
 		}
 		return addProvider(*pc, addProviderName, reg, providerNames)
 	}
@@ -180,7 +184,7 @@ func addProvider(p Configuration, addProviderName func(pn string) string, reg de
 }
 
 func (c ConfigurationCollection) getProviderConfiguration(ctx context.Context, id string, reg dependencies) (*Configuration, error) {
-	builder, err := request.NewBuilder(c.ProviderRequestConfig, reg)
+	builder, err := request.NewBuilder(c.ProvidersRequestConfig, reg)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +204,7 @@ func (c ConfigurationCollection) getProviderConfiguration(ctx context.Context, i
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= http.StatusBadRequest {
+	if resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, errors.Errorf("status code: %d", resp.StatusCode)
 	}
 

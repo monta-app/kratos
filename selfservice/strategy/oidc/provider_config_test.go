@@ -50,7 +50,7 @@ func TestConfig(t *testing.T) {
 
 		var c map[string]interface{}
 		require.NoError(t, json.NewDecoder(
-			bytes.NewBufferString(`{"config": {"request_config":{"url": "https://example.com/identity/provider/oidc","method": "GET","auth": {"type": "bearer","config": {"value": "token"}}}, "providers": [{"provider": "generic"}]}}`)).Decode(&c))
+			bytes.NewBufferString(`{"config": {"providers_request":{"url": "https://example.com/identity/provider/oidc","method": "GET","auth": {"type": "api_key","config": {"name": "Authorization","value": "token", "in": "header"}}}, "providers": [{"provider": "generic"}]}}`)).Decode(&c))
 		conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypeOIDC), c)
 
 		s := oidc.NewStrategy(reg)

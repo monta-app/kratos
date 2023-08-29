@@ -153,31 +153,6 @@
         "config"
       ]
     },
-    "webHookAuthBearerProperties": {
-      "properties": {
-        "type": {
-          "const": "bearer"
-        },
-        "config": {
-          "type": "object",
-          "properties": {
-            "value": {
-              "type": "string",
-              "description": "The value of the bearer token"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "value"
-          ]
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "type",
-        "config"
-      ]
-    },
     "selfServiceWebHook": {
       "type": "object",
       "properties": {
@@ -1584,7 +1559,7 @@
                         "https://auth.myexample.org/"
                       ]
                     },
-                    "request_config": {
+                    "providers_request": {
                       "type": "object",
                       "properties": {
                         "url": {
@@ -1601,10 +1576,7 @@
                         },
                         "headers": {
                           "type": "object",
-                          "description": "The HTTP headers that must be applied to request",
-                          "additionalProperties": {
-                            "type": "string"
-                          }
+                          "description": "The HTTP headers that must be applied to request"
                         },
                         "auth": {
                           "type": "object",
@@ -1616,9 +1588,6 @@
                             },
                             {
                               "$ref": "#/definitions/webHookAuthBasicAuthProperties"
-                            },
-                            {
-                              "$ref": "#/definitions/webHookAuthBearerProperties"
                             }
                           ]
                         },
