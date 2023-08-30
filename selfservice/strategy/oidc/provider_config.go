@@ -130,11 +130,7 @@ func (c ConfigurationCollection) Provider(ctx context.Context, id string, reg de
 	if len(c.ProvidersRequestConfig) > 0 {
 		pc, err := c.getProviderConfiguration(ctx, id, reg)
 		if err != nil {
-			return nil, errors.WithStack(
-				herodot.ErrNotFound.
-					WithError(err.Error()).
-					WithReasonf(`OpenID Connect Provider "%s" configuration wasn't found`, id),
-			)
+			return nil, err
 		}
 		return addProvider(*pc, addProviderName, reg, providerNames)
 	}
@@ -204,8 +200,12 @@ func (c ConfigurationCollection) getProviderConfiguration(ctx context.Context, i
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, errors.Errorf("status code: %d", resp.StatusCode)
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusNotFound:
+		return nil, errors.WithStack(herodot.ErrNotFound.WithReasonf(`OpenID Connect Provider "%s" configuration wasn't found`, id))
+	default:
+		return nil, errors.New(http.StatusText(resp.StatusCode))
 	}
 
 	config := &Configuration{}
