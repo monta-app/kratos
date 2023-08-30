@@ -130,11 +130,11 @@ func (c ConfigurationCollection) Provider(ctx context.Context, id string, reg de
 	if len(c.ProvidersRequestConfig) > 0 {
 		pc, err := c.getProviderConfiguration(ctx, id, reg)
 		if err != nil {
-			return nil, errors.
-				WithStack(herodot.ErrNotFound.
-					WithWrap(err).
+			return nil, errors.WithStack(
+				herodot.ErrNotFound.
+					WithError(err.Error()).
 					WithReasonf(`OpenID Connect Provider "%s" configuration wasn't found`, id),
-				)
+			)
 		}
 		return addProvider(*pc, addProviderName, reg, providerNames)
 	}
