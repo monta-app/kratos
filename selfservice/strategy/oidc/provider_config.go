@@ -4,7 +4,10 @@
 package oidc
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/ory/kratos/request"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -111,62 +114,111 @@ func (p Configuration) Redir(public *url.URL) string {
 }
 
 type ConfigurationCollection struct {
-	BaseRedirectURI string          `json:"base_redirect_uri"`
-	Providers       []Configuration `json:"providers"`
+	BaseRedirectURI        string          `json:"base_redirect_uri"`
+	ProvidersRequestConfig json.RawMessage `json:"providers_request,omitempty"`
+	Providers              []Configuration `json:"providers"`
 }
 
-func (c ConfigurationCollection) Provider(id string, reg dependencies) (Provider, error) {
+func (c ConfigurationCollection) Provider(ctx context.Context, id string, reg dependencies) (Provider, error) {
+	var providerNames []string
+	var addProviderName = func(pn string) string {
+		providerNames = append(providerNames, pn)
+		return pn
+	}
 	for k := range c.Providers {
 		p := c.Providers[k]
 		if p.ID == id {
-			var providerNames []string
-			var addProviderName = func(pn string) string {
-				providerNames = append(providerNames, pn)
-				return pn
-			}
-
-			// !!! WARNING !!!
-			//
-			// If you add a provider here, please also add a test to
-			// provider_private_net_test.go
-			switch p.Provider {
-			case addProviderName("generic"):
-				return NewProviderGenericOIDC(&p, reg), nil
-			case addProviderName("google"):
-				return NewProviderGoogle(&p, reg), nil
-			case addProviderName("github"):
-				return NewProviderGitHub(&p, reg), nil
-			case addProviderName("github-app"):
-				return NewProviderGitHubApp(&p, reg), nil
-			case addProviderName("gitlab"):
-				return NewProviderGitLab(&p, reg), nil
-			case addProviderName("microsoft"):
-				return NewProviderMicrosoft(&p, reg), nil
-			case addProviderName("discord"):
-				return NewProviderDiscord(&p, reg), nil
-			case addProviderName("slack"):
-				return NewProviderSlack(&p, reg), nil
-			case addProviderName("facebook"):
-				return NewProviderFacebook(&p, reg), nil
-			case addProviderName("auth0"):
-				return NewProviderAuth0(&p, reg), nil
-			case addProviderName("vk"):
-				return NewProviderVK(&p, reg), nil
-			case addProviderName("yandex"):
-				return NewProviderYandex(&p, reg), nil
-			case addProviderName("apple"):
-				return NewProviderApple(&p, reg), nil
-			case addProviderName("spotify"):
-				return NewProviderSpotify(&p, reg), nil
-			case addProviderName("netid"):
-				return NewProviderNetID(&p, reg), nil
-			case addProviderName("dingtalk"):
-				return NewProviderDingTalk(&p, reg), nil
-			}
-			return nil, errors.Errorf("provider type %s is not supported, supported are: %v", p.Provider, providerNames)
+			return addProvider(p, addProviderName, reg, providerNames)
 		}
 	}
+	if len(c.ProvidersRequestConfig) > 0 {
+		pc, err := c.getProviderConfiguration(ctx, id, reg)
+		if err != nil {
+			return nil, err
+		}
+		return addProvider(*pc, addProviderName, reg, providerNames)
+	}
 	return nil, errors.WithStack(herodot.ErrNotFound.WithReasonf(`OpenID Connect Provider "%s" is unknown or has not been configured`, id))
+}
+
+// !!! WARNING !!!
+//
+// If you add a provider here, please also add a test to
+// provider_private_net_test.go
+func addProvider(p Configuration, addProviderName func(pn string) string, reg dependencies, providerNames []string) (Provider, error) {
+	switch p.Provider {
+	case addProviderName("generic"):
+		return NewProviderGenericOIDC(&p, reg), nil
+	case addProviderName("google"):
+		return NewProviderGoogle(&p, reg), nil
+	case addProviderName("github"):
+		return NewProviderGitHub(&p, reg), nil
+	case addProviderName("github-app"):
+		return NewProviderGitHubApp(&p, reg), nil
+	case addProviderName("gitlab"):
+		return NewProviderGitLab(&p, reg), nil
+	case addProviderName("microsoft"):
+		return NewProviderMicrosoft(&p, reg), nil
+	case addProviderName("discord"):
+		return NewProviderDiscord(&p, reg), nil
+	case addProviderName("slack"):
+		return NewProviderSlack(&p, reg), nil
+	case addProviderName("facebook"):
+		return NewProviderFacebook(&p, reg), nil
+	case addProviderName("auth0"):
+		return NewProviderAuth0(&p, reg), nil
+	case addProviderName("vk"):
+		return NewProviderVK(&p, reg), nil
+	case addProviderName("yandex"):
+		return NewProviderYandex(&p, reg), nil
+	case addProviderName("apple"):
+		return NewProviderApple(&p, reg), nil
+	case addProviderName("spotify"):
+		return NewProviderSpotify(&p, reg), nil
+	case addProviderName("netid"):
+		return NewProviderNetID(&p, reg), nil
+	case addProviderName("dingtalk"):
+		return NewProviderDingTalk(&p, reg), nil
+	}
+	return nil, errors.Errorf("provider type %s is not supported, supported are: %v", p.Provider, providerNames)
+}
+
+func (c ConfigurationCollection) getProviderConfiguration(ctx context.Context, id string, reg dependencies) (*Configuration, error) {
+	builder, err := request.NewBuilder(c.ProvidersRequestConfig, reg)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := builder.BuildRequest(ctx, nil)
+	req.URL.RawQuery = url.Values{
+		"id": {id},
+	}.Encode()
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := reg.HTTPClient(ctx).Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusNotFound:
+		return nil, errors.WithStack(herodot.ErrNotFound.WithReasonf(`OpenID Connect Provider "%s" configuration wasn't found`, id))
+	default:
+		return nil, errors.New(http.StatusText(resp.StatusCode))
+	}
+
+	config := &Configuration{}
+	err = json.NewDecoder(resp.Body).Decode(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return config, nil
 }
 
 type WithSecretHidden Configuration

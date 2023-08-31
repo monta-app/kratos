@@ -1941,6 +1941,46 @@
                         "https://auth.myexample.org/"
                       ]
                     },
+                    "providers_request": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "title": "HTTP address of API endpoint",
+                          "description": "This URL will be used to connect to Service Identity v2.",
+                          "examples": [
+                            "https://example.com/identity/provider"
+                          ],
+                          "type": "string"
+                        },
+                        "method": {
+                          "type": "string",
+                          "description": "The HTTP method to use (GET, POST, etc)."
+                        },
+                        "headers": {
+                          "type": "object",
+                          "description": "The HTTP headers that must be applied to request"
+                        },
+                        "auth": {
+                          "type": "object",
+                          "title": "Auth mechanisms",
+                          "description": "Define which auth mechanism to use for auth with Service Identity v2",
+                          "oneOf": [
+                            {
+                              "$ref": "#/definitions/webHookAuthApiKeyProperties"
+                            },
+                            {
+                              "$ref": "#/definitions/webHookAuthBasicAuthProperties"
+                            }
+                          ]
+                        },
+                        "additionalProperties": false
+                      },
+                      "required": [
+                        "url",
+                        "method"
+                      ],
+                      "additionalProperties": false
+                    },
                     "providers": {
                       "title": "OpenID Connect and OAuth2 Providers",
                       "description": "A list and configuration of OAuth2 and OpenID Connect providers Ory Kratos should integrate with.",

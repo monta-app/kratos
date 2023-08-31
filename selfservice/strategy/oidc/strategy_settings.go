@@ -101,7 +101,7 @@ func (s *Strategy) linkedProviders(ctx context.Context, r *http.Request, conf *C
 
 	var result []Provider
 	for _, p := range available.Providers {
-		prov, err := conf.Provider(p.Provider, s.d)
+		prov, err := conf.Provider(ctx, p.Provider, s.d)
 		if err != nil {
 			return nil, err
 		}
@@ -131,7 +131,7 @@ func (s *Strategy) linkableProviders(ctx context.Context, r *http.Request, conf 
 		}
 
 		if !found {
-			prov, err := conf.Provider(p.ID, s.d)
+			prov, err := conf.Provider(ctx, p.ID, s.d)
 			if err != nil {
 				return nil, err
 			}
