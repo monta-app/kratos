@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/jarcoal/httpmock"
 	"github.com/ory/kratos/session"
 	"github.com/ory/kratos/ui/node"
 	"io"
@@ -1227,4 +1228,46 @@ func TestProvidersHandler(t *testing.T) {
 		}
 	})
 
+	t.Run("case=should fetch providers from external source", func(t *testing.T) {
+		viperSetProvidersRequestConfig(
+			t,
+			conf,
+			&oidc.ConfigurationCollection{
+				ProvidersRequestConfig: json.RawMessage(
+					`{
+						"url": "https://example.com/identity/providers/oidc",
+						"method": "GET",
+						"auth": {
+							"type": "api_key",
+							"config": {
+								"name": "Authorization",
+								"value": "token",
+								"in": "header"
+							}
+						}
+					}`,
+				),
+			},
+		)
+		httpmock.Activate()
+		defer httpmock.DeactivateAndReset()
+
+		httpmock.RegisterResponder("GET", "https://example.com/identity/providers/oidc",
+			func(req *http.Request) (*http.Response, error) {
+				return httpmock.NewJsonResponse(200, json.RawMessage(
+					`[{"id": "provider1", "provider": "generic", "client_secret": "secret1"}, {"id": "provider2", "provider": "generic", "client_secret": "secret1"}]`))
+			},
+		)
+		for name, ts := range map[string]*httptest.Server{"public": publicTS, "admin": adminTS} {
+			t.Run("endpoint="+name, func(t *testing.T) {
+				parsed := get(t, ts, "/providers/oidc", http.StatusOK)
+				require.True(t, parsed.IsArray(), "%s", parsed.Raw)
+				assert.Len(t, parsed.Array(), 2)
+				assert.Equal(t, "provider1", parsed.Array()[0].Get("id").String(), "%s", parsed.Array()[0].Raw)
+				assert.Equal(t, "", parsed.Array()[0].Get("client_secret").String(), "%s", parsed.Array()[0].Raw)
+				assert.Equal(t, "", parsed.Array()[0].Get("apple_private_key").String(), "%s", parsed.Array()[0].Raw)
+				assert.Equal(t, "", parsed.Array()[0].Get("apple_private_key_id").String(), "%s", parsed.Array()[0].Raw)
+			})
+		}
+	})
 }

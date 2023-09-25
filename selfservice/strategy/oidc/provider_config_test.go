@@ -42,7 +42,7 @@ func TestConfig(t *testing.T) {
 		httpmock.Activate()
 		defer httpmock.DeactivateAndReset()
 
-		httpmock.RegisterResponder("GET", "https://example.com/identity/provider/oidc?id=google",
+		httpmock.RegisterResponder("GET", "https://example.com/identity/providers/oidc/google",
 			func(req *http.Request) (*http.Response, error) {
 				return httpmock.NewJsonResponse(200, json.RawMessage(`{"id": "google", "provider": "google", "scope": ["profile"]}`))
 			},
@@ -50,7 +50,7 @@ func TestConfig(t *testing.T) {
 
 		var c map[string]interface{}
 		require.NoError(t, json.NewDecoder(
-			bytes.NewBufferString(`{"config": {"providers_request":{"url": "https://example.com/identity/provider/oidc","method": "GET","auth": {"type": "api_key","config": {"name": "Authorization","value": "token", "in": "header"}}}, "providers": [{"provider": "generic"}]}}`)).Decode(&c))
+			bytes.NewBufferString(`{"config": {"providers_request":{"url": "https://example.com/identity/providers/oidc","method": "GET","auth": {"type": "api_key","config": {"name": "Authorization","value": "token", "in": "header"}}}, "providers": [{"provider": "generic"}]}}`)).Decode(&c))
 		conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypeOIDC), c)
 
 		s := oidc.NewStrategy(reg)

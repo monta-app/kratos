@@ -552,14 +552,26 @@ func (s *Strategy) linkCredentials(ctx context.Context, i *identity.Identity, id
 //	  200: listProviders
 //	  default: errorGeneric
 func (s *Strategy) listProviders(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if c, err := s.Config(r.Context()); err != nil {
+	c, err := s.Config(r.Context())
+	if err != nil {
 		s.d.Writer().WriteError(w, r, err)
 	} else {
-		// Providers configurations using the marshaler for hiding client secret
-		l := make([]WithSecretHidden, len(c.Providers))
-		for i, configuration := range c.Providers {
-			l[i] = WithSecretHidden(configuration)
+		if len(c.ProvidersRequestConfig) > 0 {
+			c, err = c.listProviderConfigurations(r.Context(), s.d)
+			if err != nil {
+				s.d.Writer().WriteError(w, r, err)
+				return
+			}
 		}
-		s.d.Writer().Write(w, r, l)
+		s.marshalConfigurationCollection(w, r, c)
 	}
+}
+
+func (s *Strategy) marshalConfigurationCollection(w http.ResponseWriter, r *http.Request, c *ConfigurationCollection) {
+	// Providers configurations using the marshaler for hiding client secret
+	l := make([]WithSecretHidden, len(c.Providers))
+	for i, configuration := range c.Providers {
+		l[i] = WithSecretHidden(configuration)
+	}
+	s.d.Writer().Write(w, r, l)
 }

@@ -6,6 +6,8 @@ package oidc
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/ory/kratos/request"
 	"net/http"
 	"net/url"
@@ -184,15 +186,7 @@ func addProvider(p Configuration, addProviderName func(pn string) string, reg de
 }
 
 func (c ConfigurationCollection) getProviderConfiguration(ctx context.Context, id string, reg dependencies) (*Configuration, error) {
-	builder, err := request.NewBuilder(c.ProvidersRequestConfig, reg)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := builder.BuildRequest(ctx, nil)
-	req.URL.RawQuery = url.Values{
-		"id": {id},
-	}.Encode()
+	req, err := c.buildRequest(ctx, id, reg)
 	if err != nil {
 		return nil, err
 	}
@@ -219,6 +213,54 @@ func (c ConfigurationCollection) getProviderConfiguration(ctx context.Context, i
 	}
 
 	return config, nil
+}
+
+func (c ConfigurationCollection) listProviderConfigurations(ctx context.Context, reg dependencies) (*ConfigurationCollection, error) {
+	req, err := c.buildRequest(ctx, "", reg)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := reg.HTTPClient(ctx).Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusNotFound:
+		return nil, errors.WithStack(herodot.ErrNotFound.WithReasonf(`OpenID Connect Provider configurations were not found`))
+	default:
+		return nil, errors.New(http.StatusText(resp.StatusCode))
+	}
+
+	config := &ConfigurationCollection{}
+	err = json.NewDecoder(resp.Body).Decode(&config.Providers)
+	if err != nil {
+		return nil, err
+	}
+
+	return config, nil
+}
+
+func (c ConfigurationCollection) buildRequest(ctx context.Context, id string, reg dependencies) (*retryablehttp.Request, error) {
+	builder, err := request.NewBuilder(c.ProvidersRequestConfig, reg)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := builder.BuildRequest(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if id != "" {
+		req.URL.Path = fmt.Sprintf("%s/%s", req.URL.Path, id)
+	}
+
+	return req, nil
 }
 
 type WithSecretHidden Configuration

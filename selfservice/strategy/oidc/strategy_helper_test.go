@@ -323,6 +323,12 @@ func viperSetProviderConfig(t *testing.T, conf *config.Config, providers ...oidc
 	conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypeOIDC)+".enabled", true)
 }
 
+func viperSetProvidersRequestConfig(t *testing.T, conf *config.Config, providersConfig *oidc.ConfigurationCollection) {
+	ctx := context.Background()
+	conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypeOIDC)+".config", &providersConfig)
+	conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(identity.CredentialsTypeOIDC)+".enabled", true)
+}
+
 // AssertSystemError asserts an error ui response
 func AssertSystemError(t *testing.T, errTS *httptest.Server, res *http.Response, body []byte, code int, reason string) {
 	require.Contains(t, res.Request.URL.String(), errTS.URL, "%s", body)
