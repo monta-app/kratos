@@ -44,7 +44,7 @@ func TestVerifier(t *testing.T) {
 	for k, hf := range map[string]func(*hook.Verifier, *identity.Identity, flow.Flow) error{
 		"settings": func(h *hook.Verifier, i *identity.Identity, f flow.Flow) error {
 			return h.ExecuteSettingsPostPersistHook(
-				httptest.NewRecorder(), u, f.(*settings.Flow), i)
+				httptest.NewRecorder(), u, f.(*settings.Flow), i, &session.Session{ID: x.NewUUID(), Identity: i})
 		},
 		"register": func(h *hook.Verifier, i *identity.Identity, f flow.Flow) error {
 			return h.ExecutePostRegistrationPostPersistHook(
@@ -167,7 +167,7 @@ func TestPhoneVerifier(t *testing.T) {
 		originalFlow = &settings.Flow{RequestURL: "http://foo.com/settings?after_verification_return_to=verification_callback"}
 
 		h := hook.NewVerifier(reg)
-		require.NoError(t, h.ExecuteSettingsPostPersistHook(httptest.NewRecorder(), u, originalFlow.(*settings.Flow), i))
+		require.NoError(t, h.ExecuteSettingsPostPersistHook(httptest.NewRecorder(), u, originalFlow.(*settings.Flow), i, &session.Session{ID: x.NewUUID(), Identity: i}))
 		s, err := reg.GetActiveVerificationStrategy(ctx)
 		require.NoError(t, err)
 		expectedVerificationFlow, err := verification.NewPostHookFlow(conf, conf.SelfServiceFlowVerificationRequestLifespan(ctx), "", u, s, originalFlow)
@@ -195,7 +195,7 @@ func TestPhoneVerifier(t *testing.T) {
 		require.NoError(t, err)
 		assert.EqualValues(t, identity.VerifiableAddressStatusSent, address1.Status)
 
-		require.NoError(t, h.ExecuteSettingsPostPersistHook(httptest.NewRecorder(), u, originalFlow.(*settings.Flow), i))
+		require.NoError(t, h.ExecuteSettingsPostPersistHook(httptest.NewRecorder(), u, originalFlow.(*settings.Flow), i, &session.Session{ID: x.NewUUID(), Identity: i}))
 		expectedVerificationFlow, err = verification.NewPostHookFlow(conf, conf.SelfServiceFlowVerificationRequestLifespan(ctx), "", u, s, originalFlow)
 		var verificationFlow2 verification.Flow
 		require.NoError(t, reg.Persister().GetConnection(ctx).First(&verificationFlow2))
