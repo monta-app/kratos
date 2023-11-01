@@ -79,6 +79,11 @@ type UpdateRegistrationFlowWithOidcMethod struct {
 	// required: true
 	Method string `json:"method"`
 
+	// Transient data to pass along to any webhooks
+	//
+	// required: false
+	TransientPayload json.RawMessage `json:"transient_payload,omitempty"`
+
 	// Only used in API-type flows, when an id token has been received by mobile app directly from oidc provider.
 	//
 	// required: false
@@ -147,6 +152,7 @@ func (s *Strategy) Register(w http.ResponseWriter, r *http.Request, f *registrat
 		pid = p.Provider
 	}
 
+	f.TransientPayload = p.TransientPayload
 	if pid == "" {
 		return errors.WithStack(flow.ErrStrategyNotResponsible)
 	}
@@ -178,9 +184,10 @@ func (s *Strategy) Register(w http.ResponseWriter, r *http.Request, f *registrat
 	if f.Type == flow.TypeBrowser {
 		if err := s.d.ContinuityManager().Pause(r.Context(), w, r, sessionName,
 			continuity.WithPayload(&authCodeContainer{
-				State:  state,
-				FlowID: f.ID.String(),
-				Traits: p.Traits,
+				State:            state,
+				FlowID:           f.ID.String(),
+				Traits:           p.Traits,
+				TransientPayload: f.TransientPayload,
 			}),
 			continuity.WithLifespan(time.Minute*30)); err != nil {
 			return s.handleError(w, r, f, pid, nil, err)
