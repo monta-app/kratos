@@ -109,6 +109,7 @@ func (s *Strategy) Register(w http.ResponseWriter, r *http.Request, f *registrat
 	}
 
 	i.Traits = identity.Traits(p.Traits)
+	f.TransientPayload = p.TransientPayload
 
 	if p.Code == "" {
 		if err := s.deps.IdentityValidator().Validate(r.Context(), i); err != nil {
