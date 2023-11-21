@@ -140,6 +140,8 @@ func TestRegistration(t *testing.T) {
 			body := testhelpers.SubmitRegistrationFormWithFlow(t, isAPI, hc, values,
 				isSPA, http.StatusOK, expectReturnTo, f)
 
+			assert.Equal(t, "code", gjson.Get(body, "active").String(), "Response body: %s", body)
+
 			messages, err := reg.CourierPersister().NextMessages(context.Background(), 10)
 			assert.NoError(t, err, "Courier queue should not be empty.")
 			assert.Equal(t, 1, len(messages))
