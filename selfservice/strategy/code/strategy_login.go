@@ -63,6 +63,7 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 				return nil, s.handleLoginError(w, r, f, &p, err)
 			}
 		}
+		f.Active = s.ID()
 		f.UI.Nodes.Upsert(node.NewInputField("code", "", node.CodeGroup, node.InputAttributeTypeText))
 		f.UI.Nodes.Remove("identifier")
 		return nil, s.handleLoginError(w, r, f, &p, NewCodeSentError())

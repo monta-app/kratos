@@ -124,6 +124,7 @@ func (s *Strategy) Register(w http.ResponseWriter, r *http.Request, f *registrat
 				fmt.Errorf("credentials identifiers missing or more than one: %v", credentials.Identifiers))
 		}
 		err := s.deps.CodeAuthenticationService().SendCode(r.Context(), f, credentials.Identifiers[0], p.TransientPayload)
+		f.Active = s.ID()
 		if err != nil {
 			return s.handleRegistrationError(w, r, f, &p, err)
 		}

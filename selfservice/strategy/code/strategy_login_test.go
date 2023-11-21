@@ -145,6 +145,7 @@ func TestStrategy_Login(t *testing.T) {
 			gjson.Get(body, "ui.messages.0.text").String(),
 			"%s", body,
 		)
+		assert.Equal(t, "code", gjson.Get(body, "active").String(), "%s", body)
 		assert.NotEmpty(t, gjson.Get(body, "ui.nodes.#(attributes.name==code)"), "%s", body)
 		assert.Empty(t, gjson.Get(body, "ui.nodes.#(attributes.name==code).attirbutes.value"), "%s", body)
 
