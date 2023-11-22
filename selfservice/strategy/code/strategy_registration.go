@@ -129,6 +129,13 @@ func (s *Strategy) Register(w http.ResponseWriter, r *http.Request, f *registrat
 			return s.handleRegistrationError(w, r, f, &p, err)
 		}
 		f.UI.Nodes.Upsert(node.NewInputField("code", "", node.CodeGroup, node.InputAttributeTypeText))
+		ds, err := s.deps.Config().DefaultIdentityTraitsSchemaURL(r.Context())
+		if err != nil {
+			return s.handleRegistrationError(w, r, f, &p, err)
+		}
+		if err := registration.SortNodes(r.Context(), f.UI.Nodes, ds.String()); err != nil {
+			return s.handleRegistrationError(w, r, f, &p, err)
+		}
 		return s.handleRegistrationError(w, r, f, &p, NewCodeSentError())
 	} else {
 		code, err := s.deps.CodeAuthenticationService().VerifyCode(r.Context(), f, p.Code)
