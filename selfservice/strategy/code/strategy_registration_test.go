@@ -243,6 +243,21 @@ func TestRegistration(t *testing.T) {
 			snapshotx.SnapshotTExcept(t, sr.UI, []string{"action", "nodes.0.attributes.value"})
 		})
 
+		t.Run("method=TestUpsertCodeNode", func(t *testing.T) {
+			conf.MustSet(ctx, config.ViperKeyPublicBaseURL, "https://foo/")
+			t.Cleanup(func() {
+				conf.MustSet(ctx, config.ViperKeyPublicBaseURL, publicTS.URL)
+			})
+
+			sr, err := registration.NewFlow(conf, time.Minute, "nosurf", &http.Request{URL: urlx.ParseOrPanic("/")}, flow.TypeBrowser)
+			require.NoError(t, err)
+			strategy := reg.RegistrationStrategies(context.Background()).MustStrategy(identity.CredentialsTypeCode).(*code.Strategy)
+			require.NoError(t, strategy.PopulateRegistrationMethod(&http.Request{}, sr))
+			require.NoError(t, strategy.UpsertCodeNode(ctx, sr))
+
+			snapshotx.SnapshotTExcept(t, sr.UI, []string{"action", "nodes.0.attributes.value"})
+		})
+
 		t.Run("case=should use standby sender", func(t *testing.T) {
 			senderMessagesCount := 0
 			standbySenderMessagesCount := 0
