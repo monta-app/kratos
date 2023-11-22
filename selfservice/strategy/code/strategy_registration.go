@@ -4,6 +4,7 @@
 package code
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -123,18 +124,12 @@ func (s *Strategy) Register(w http.ResponseWriter, r *http.Request, f *registrat
 			return s.handleRegistrationError(w, r, f, &p,
 				fmt.Errorf("credentials identifiers missing or more than one: %v", credentials.Identifiers))
 		}
-		err := s.deps.CodeAuthenticationService().SendCode(r.Context(), f, credentials.Identifiers[0], p.TransientPayload)
+		if err := s.deps.CodeAuthenticationService().SendCode(r.Context(), f, credentials.Identifiers[0], p.TransientPayload); err != nil {
+			return s.handleRegistrationError(w, r, f, &p, err)
+		}
 		f.Active = s.ID()
-		if err != nil {
-			return s.handleRegistrationError(w, r, f, &p, err)
-		}
-		f.UI.Nodes.Upsert(node.NewInputField("code", "", node.CodeGroup, node.InputAttributeTypeText))
-		ds, err := s.deps.Config().DefaultIdentityTraitsSchemaURL(r.Context())
-		if err != nil {
-			return s.handleRegistrationError(w, r, f, &p, err)
-		}
-		if err := registration.SortNodes(r.Context(), f.UI.Nodes, ds.String()); err != nil {
-			return s.handleRegistrationError(w, r, f, &p, err)
+		if err := s.UpsertCodeNode(r.Context(), f); err != nil {
+			return err
 		}
 		return s.handleRegistrationError(w, r, f, &p, NewCodeSentError())
 	} else {
@@ -168,4 +163,21 @@ func (s *Strategy) PopulateRegistrationMethod(r *http.Request, f *registration.F
 	}
 
 	return s.populateMethod(r, f.UI, text.NewInfoRegistration())
+}
+
+func (s *Strategy) UpsertCodeNode(ctx context.Context, f *registration.Flow) error {
+	if f.Type != flow.TypeBrowser {
+		return nil
+	}
+
+	f.UI.Nodes.Upsert(node.NewInputField("code", "", node.CodeGroup, node.InputAttributeTypeText))
+	ds, err := s.deps.Config().DefaultIdentityTraitsSchemaURL(ctx)
+	if err != nil {
+		return err
+	}
+	if err := registration.SortNodes(ctx, f.UI.Nodes, ds.String()); err != nil {
+		return err
+	}
+
+	return nil
 }
