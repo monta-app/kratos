@@ -10,6 +10,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/ory/kratos/schema"
 	"github.com/ory/x/decoderx"
+	"github.com/ory/x/sqlxx"
 	"github.com/tidwall/gjson"
 	"net/http"
 	"time"
@@ -283,11 +284,11 @@ func (e *HookExecutor) linkCredentials(r *http.Request, s *session.Session, i *i
 			if innerErr != nil {
 				return innerErr
 			}
-			linkCredentialsFlow, innerErr := e.d.LoginFlowPersister().GetLoginFlow(r.Context(), linkCredentialsFlowID)
+			internalContext, innerErr := e.d.LoginFlowPersister().GetInternalContext(r.Context(), linkCredentialsFlowID)
 			if innerErr != nil {
 				return innerErr
 			}
-			innerErr = e.getInternalContextLinkCredentials(linkCredentialsFlow, flow.InternalContextDuplicateCredentialsPath, &lc)
+			innerErr = e.getInternalContextLinkCredentials(internalContext, flow.InternalContextDuplicateCredentialsPath, &lc)
 			if innerErr != nil {
 				return innerErr
 			}
@@ -295,7 +296,7 @@ func (e *HookExecutor) linkCredentials(r *http.Request, s *session.Session, i *i
 	}
 
 	if lc.CredentialsType == "" {
-		err := e.getInternalContextLinkCredentials(f, flow.InternalContextLinkCredentialsPath, &lc)
+		err := e.getInternalContextLinkCredentials(f.InternalContext, flow.InternalContextLinkCredentialsPath, &lc)
 		if err != nil {
 			return err
 		}
@@ -326,8 +327,8 @@ func (e *HookExecutor) linkCredentials(r *http.Request, s *session.Session, i *i
 	return nil
 }
 
-func (e *HookExecutor) getInternalContextLinkCredentials(f *Flow, internalContextPath string, lc *flow.RegistrationDuplicateCredentials) error {
-	internalContextLinkCredentials := gjson.GetBytes(f.InternalContext, internalContextPath)
+func (e *HookExecutor) getInternalContextLinkCredentials(internalContext sqlxx.JSONRawMessage, internalContextPath string, lc *flow.RegistrationDuplicateCredentials) error {
+	internalContextLinkCredentials := gjson.GetBytes(internalContext, internalContextPath)
 	if internalContextLinkCredentials.IsObject() {
 		if err := json.Unmarshal([]byte(internalContextLinkCredentials.Raw), lc); err != nil {
 			return err

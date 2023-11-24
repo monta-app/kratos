@@ -6,6 +6,7 @@ package sql
 import (
 	"context"
 	"fmt"
+	"github.com/ory/x/sqlxx"
 	"time"
 
 	"github.com/gobuffalo/pop/v6"
@@ -82,4 +83,29 @@ func (p *Persister) DeleteExpiredLoginFlows(ctx context.Context, expiresAt time.
 		return sqlcon.HandleError(err)
 	}
 	return nil
+}
+
+func (p *Persister) GetInternalContext(ctx context.Context, id uuid.UUID) (sqlxx.JSONRawMessage, error) {
+	ctx, span := p.r.Tracer(ctx).Tracer().Start(ctx, "persistence.sql.GetLoginFlow")
+	defer span.End()
+
+	conn := p.GetConnection(ctx)
+
+	type Flow struct {
+		InternalContext sqlxx.JSONRawMessage `db:"internal_context" json:"-" faker:"-"`
+	}
+
+	var r Flow
+	if err := conn.RawQuery(fmt.Sprintf(
+		"SELECT internal_context FROM %s WHERE id = ? AND nid = ? UNION SELECT internal_context FROM %s WHERE id = ? AND nid = ?",
+		new(login.Flow).TableName(ctx),
+		"selfservice_registration_flows",
+	),
+		id, p.NetworkID(ctx),
+		id, p.NetworkID(ctx),
+	).First(&r); err != nil {
+		return nil, sqlcon.HandleError(err)
+	}
+
+	return r.InternalContext, nil
 }
