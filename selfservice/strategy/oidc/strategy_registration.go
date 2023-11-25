@@ -193,7 +193,11 @@ func (s *Strategy) Register(w http.ResponseWriter, r *http.Request, f *registrat
 			return s.handleError(w, r, f, pid, nil, err)
 		}
 
-		codeURL := c.AuthCodeURL(state, provider.AuthCodeURLOptions(req)...)
+		options, err := provider.AuthCodeURLOptions(req)
+		if err != nil {
+			return s.handleError(w, r, f, pid, nil, err)
+		}
+		codeURL := c.AuthCodeURL(state, options...)
 		if x.IsJSONRequest(r) {
 			s.d.Writer().WriteError(w, r, flow.NewBrowserLocationChangeRequiredError(codeURL))
 		} else {

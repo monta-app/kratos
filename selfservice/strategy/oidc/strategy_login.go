@@ -228,7 +228,11 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 			return nil, s.handleError(w, r, f, pid, nil, errors.WithStack(herodot.ErrInternalServerError.WithReason("Could not update flow").WithDebug(err.Error())))
 		}
 
-		codeURL := c.AuthCodeURL(state, provider.AuthCodeURLOptions(req)...)
+		options, err := provider.AuthCodeURLOptions(req)
+		if err != nil {
+			return nil, s.handleError(w, r, f, pid, nil, err)
+		}
+		codeURL := c.AuthCodeURL(state, options...)
 		if x.IsJSONRequest(r) {
 			s.d.Writer().WriteError(w, r, flow.NewBrowserLocationChangeRequiredError(codeURL))
 		} else {
