@@ -173,7 +173,7 @@ func (s *Strategy) Verify(w http.ResponseWriter, r *http.Request, f *verificatio
 	}
 }
 
-func (s *Strategy) createVerificationCodeForm(action string, code *string, email *string) *container.Container {
+func (s *Strategy) createVerificationCodeForm(action string, code *string, address *string, via *identity.VerifiableAddressType) *container.Container {
 	// re-initialize the UI with a "clean" new state
 	c := &container.Container{
 		Method: "POST",
@@ -194,9 +194,9 @@ func (s *Strategy) createVerificationCodeForm(action string, code *string, email
 			WithMetaLabel(text.NewInfoNodeLabelSubmit()),
 	)
 
-	if email != nil {
+	if address != nil && via != nil {
 		c.Nodes.Append(
-			node.NewInputField("email", email, node.CodeGroup, node.InputAttributeTypeSubmit).
+			node.NewInputField(string(*via), address, node.CodeGroup, node.InputAttributeTypeSubmit).
 				WithMetaLabel(text.NewInfoNodeResendOTP()),
 		)
 	}
@@ -205,7 +205,7 @@ func (s *Strategy) createVerificationCodeForm(action string, code *string, email
 }
 
 func (s *Strategy) handleLinkClick(w http.ResponseWriter, r *http.Request, f *verification.Flow, code string) error {
-	f.UI = s.createVerificationCodeForm(flow.AppendFlowTo(urlx.AppendPaths(s.deps.Config().SelfPublicURL(r.Context()), verification.RouteSubmitFlow), f.ID).String(), &code, nil)
+	f.UI = s.createVerificationCodeForm(flow.AppendFlowTo(urlx.AppendPaths(s.deps.Config().SelfPublicURL(r.Context()), verification.RouteSubmitFlow), f.ID).String(), &code, nil, nil)
 
 	// In the verification flow, we can't enforce CSRF if the flow is opened from an email, so we initialize the CSRF
 	// token here, so all subsequent interactions are protected
@@ -243,28 +243,28 @@ func (s *Strategy) verificationHandleFormSubmission(w http.ResponseWriter, r *ht
 		return s.handleVerificationError(w, r, f, body, err)
 	}
 
-	if len(body.Email) != 0 {
-		if err := s.deps.VerificationCodePersister().DeleteVerificationCodesOfFlow(r.Context(), f.ID); err != nil {
-			return s.handleVerificationError(w, r, f, body, err)
-		}
+	via := identity.VerifiableAddressTypeEmail
+	to := body.Email
+	if len(body.Phone) != 0 {
+		via = identity.VerifiableAddressTypePhone
+		to = body.Phone
+	}
 
-	if err := s.deps.CodeSender().SendVerificationCode(r.Context(), f, identity.VerifiableAddressTypeEmail,
-		body.Email, body.TransientPayload, body.Branding); err != nil {
+	if err := s.deps.VerificationCodePersister().DeleteVerificationCodesOfFlow(r.Context(), f.ID); err != nil {
+		return s.handleVerificationError(w, r, f, body, err)
+	}
+
+	if err := s.deps.CodeSender().SendVerificationCode(r.Context(), f, via, to, body.TransientPayload, body.Branding); err != nil {
 		if !errors.Is(err, ErrUnknownAddress) {
 			return s.handleVerificationError(w, r, f, body, err)
 		}
 		// Continue execution
 	}
 
-		f.UI = s.createVerificationCodeForm(flow.AppendFlowTo(urlx.AppendPaths(s.deps.Config().SelfPublicURL(r.Context()), verification.RouteSubmitFlow), f.ID).String(), nil, &body.Email)
+	f.UI = s.createVerificationCodeForm(flow.AppendFlowTo(urlx.AppendPaths(s.deps.Config().SelfPublicURL(r.Context()), verification.RouteSubmitFlow), f.ID).String(), nil, &to, &via)
+	if via == identity.VerifiableAddressTypeEmail {
 		f.UI.Messages.Set(text.NewVerificationEmailWithCodeSent())
 	} else {
-		if err := s.deps.CodeAuthenticationService().SendCode(r.Context(), f, body.Phone, body.TransientPayload); err != nil {
-			return s.handleVerificationError(w, r, f, body, err)
-		}
-		f.UI.GetNodes().Upsert(
-			node.NewInputField("phone", body.Phone, node.CodeGroup, node.InputAttributeTypeTel, node.WithRequiredInputAttribute),
-		)
 		f.UI.Messages.Set(text.NewVerificationPhoneSent())
 	}
 
@@ -279,106 +279,64 @@ func (s *Strategy) verificationHandleFormSubmission(w http.ResponseWriter, r *ht
 }
 
 func (s *Strategy) verificationUseCode(w http.ResponseWriter, r *http.Request, body *updateVerificationFlowWithCodeMethodBody, f *verification.Flow) error {
-	codeFound, err := s.deps.CodePersister().CheckCodeExistsByFlowId(r.Context(), f.ID)
-	if err != nil {
-		return err
-	}
-	if !codeFound {
-		code, err := s.deps.VerificationCodePersister().UseVerificationCode(r.Context(), f.ID, body.Code)
-		if errors.Is(err, ErrCodeNotFound) {
-			f.UI.Messages.Clear()
-			f.UI.Messages.Add(text.NewErrorValidationVerificationCodeInvalidOrAlreadyUsed())
-			if err := s.deps.VerificationFlowPersister().UpdateVerificationFlow(r.Context(), f); err != nil {
-				return s.retryVerificationFlowWithError(w, r, f.Type, err)
-			}
-
-			// No error
-			return nil
-		} else if err != nil {
-			return s.retryVerificationFlowWithError(w, r, f.Type, err)
-		}
-
-		if err := code.Validate(); err != nil {
-			return s.retryVerificationFlowWithError(w, r, f.Type, err)
-		}
-
-		i, err := s.deps.IdentityPool().GetIdentity(r.Context(), code.VerifiableAddress.IdentityID)
-		if err != nil {
-			return s.retryVerificationFlowWithError(w, r, f.Type, err)
-		}
-
-		if err := s.deps.VerificationExecutor().PostVerificationHook(w, r, f, i); err != nil {
-			return s.retryVerificationFlowWithError(w, r, f.Type, err)
-		}
-
-		address := code.VerifiableAddress
-		address.Verified = true
-		verifiedAt := sqlxx.NullTime(time.Now().UTC())
-		address.VerifiedAt = &verifiedAt
-		address.Status = identity.VerifiableAddressStatusCompleted
-		if err := s.deps.PrivilegedIdentityPool().UpdateVerifiableAddress(r.Context(), address); err != nil {
-			return s.retryVerificationFlowWithError(w, r, f.Type, err)
-		}
-
-		returnTo := s.getRedirectURL(r.Context(), f)
-
-		f.UI = &container.Container{
-			Method: "GET",
-			Action: returnTo.String(),
-		}
-
-		f.State = verification.StatePassedChallenge
-		// See https://github.com/ory/kratos/issues/1547
-		f.SetCSRFToken(flow.GetCSRFToken(s.deps, w, r, f.Type))
-		f.UI.Messages.Set(text.NewInfoSelfServiceVerificationSuccessful())
-		f.UI.
-			Nodes.
-			Append(node.NewAnchorField("continue", returnTo.String(), node.CodeGroup, text.NewInfoNodeLabelContinue()).
-				WithMetaLabel(text.NewInfoNodeLabelContinue()))
-
-		if err := s.deps.VerificationFlowPersister().UpdateVerificationFlow(r.Context(), f); err != nil {
-			return s.retryVerificationFlowWithError(w, r, flow.TypeBrowser, err)
-		}
-	} else {
-		code, err := s.deps.CodeAuthenticationService().VerifyCode(r.Context(), f, body.Code)
-		if err != nil {
-			f.UI.Messages.Clear()
-			return err
-		}
-
+	code, err := s.deps.VerificationCodePersister().UseVerificationCode(r.Context(), f.ID, body.Code)
+	if errors.Is(err, ErrCodeNotFound) {
 		f.UI.Messages.Clear()
-		f.State = verification.StatePassedChallenge
-		f.UI.Messages.Set(text.NewInfoSelfServicePhoneVerificationSuccessful())
+		f.UI.Messages.Add(text.NewErrorValidationVerificationCodeInvalidOrAlreadyUsed())
 		if err := s.deps.VerificationFlowPersister().UpdateVerificationFlow(r.Context(), f); err != nil {
 			return s.retryVerificationFlowWithError(w, r, f.Type, err)
 		}
 
-		i, err := s.findByCredentialsIdentifier(r.Context(), code.Identifier)
-		if err != nil {
-			return s.retryVerificationFlowWithError(w, r, f.Type, err)
-		}
+		// No error
+		return nil
+	} else if err != nil {
+		return s.retryVerificationFlowWithError(w, r, f.Type, err)
+	}
 
-		if err := s.deps.VerificationExecutor().PostVerificationHook(w, r, f, i); err != nil {
-			return s.retryVerificationFlowWithError(w, r, f.Type, err)
-		}
+	if err := code.Validate(); err != nil {
+		return s.retryVerificationFlowWithError(w, r, f.Type, err)
+	}
 
-		var address *identity.VerifiableAddress = nil
-		for _, a := range i.VerifiableAddresses {
-			if code.Identifier == a.Value {
-				address = &a
-				break
-			}
-		}
-		if address == nil {
-			return s.retryVerificationFlowWithError(w, r, f.Type, errors.New("address ot found"))
-		}
-		address.Verified = true
-		verifiedAt := sqlxx.NullTime(time.Now().UTC())
-		address.VerifiedAt = &verifiedAt
-		address.Status = identity.VerifiableAddressStatusCompleted
-		if err := s.deps.PrivilegedIdentityPool().UpdateVerifiableAddress(r.Context(), address); err != nil {
-			return s.retryVerificationFlowWithError(w, r, f.Type, err)
-		}
+	i, err := s.deps.IdentityPool().GetIdentity(r.Context(), code.VerifiableAddress.IdentityID)
+	if err != nil {
+		return s.retryVerificationFlowWithError(w, r, f.Type, err)
+	}
+
+	if err := s.deps.VerificationExecutor().PostVerificationHook(w, r, f, i); err != nil {
+		return s.retryVerificationFlowWithError(w, r, f.Type, err)
+	}
+
+	address := code.VerifiableAddress
+	address.Verified = true
+	verifiedAt := sqlxx.NullTime(time.Now().UTC())
+	address.VerifiedAt = &verifiedAt
+	address.Status = identity.VerifiableAddressStatusCompleted
+	if err := s.deps.PrivilegedIdentityPool().UpdateVerifiableAddress(r.Context(), address); err != nil {
+		return s.retryVerificationFlowWithError(w, r, f.Type, err)
+	}
+
+	returnTo := s.getRedirectURL(r.Context(), f)
+
+	f.UI = &container.Container{
+		Method: "GET",
+		Action: returnTo.String(),
+	}
+
+	f.State = verification.StatePassedChallenge
+	// See https://github.com/ory/kratos/issues/1547
+	f.SetCSRFToken(flow.GetCSRFToken(s.deps, w, r, f.Type))
+	if code.VerifiableAddress.Via == identity.VerifiableAddressTypeEmail {
+		f.UI.Messages.Set(text.NewInfoSelfServiceVerificationSuccessful())
+	} else {
+		f.UI.Messages.Set(text.NewInfoSelfServicePhoneVerificationSuccessful())
+	}
+	f.UI.
+		Nodes.
+		Append(node.NewAnchorField("continue", returnTo.String(), node.CodeGroup, text.NewInfoNodeLabelContinue()).
+			WithMetaLabel(text.NewInfoNodeLabelContinue()))
+
+	if err := s.deps.VerificationFlowPersister().UpdateVerificationFlow(r.Context(), f); err != nil {
+		return s.retryVerificationFlowWithError(w, r, flow.TypeBrowser, err)
 	}
 	return nil
 }
@@ -472,7 +430,7 @@ func (s *Strategy) retryVerificationFlowWithError(w http.ResponseWriter, r *http
 	return errors.WithStack(flow.ErrCompletedByStrategy)
 }
 
-func (s *Strategy) SendVerificationEmail(ctx context.Context, f *verification.Flow, i *identity.Identity, a *identity.VerifiableAddress,
+func (s *Strategy) SendVerification(ctx context.Context, f *verification.Flow, i *identity.Identity, a *identity.VerifiableAddress,
 	transientPayload json.RawMessage, branding string) (err error) {
 
 	rawCode := GenerateCode()

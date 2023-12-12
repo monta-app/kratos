@@ -30,6 +30,8 @@ func SMSTemplateType(t SMSTemplate) (TemplateType, error) {
 		return TypeTestStub, nil
 	case *sms.CodeMessage:
 		return TypeCode, nil
+	case *sms.VerificationCodeValid:
+		return TypeVerificationCodeValid, nil
 	default:
 		return "", errors.Errorf("unexpected template type")
 	}
@@ -55,6 +57,12 @@ func NewSMSTemplateFromMessage(d Dependencies, m Message) (SMSTemplate, error) {
 			return nil, err
 		}
 		return sms.NewCodeMessage(d, &t), nil
+	case TypeVerificationCodeValid:
+		var t sms.VerificationCodeValidModel
+		if err := json.Unmarshal(m.TemplateData, &t); err != nil {
+			return nil, err
+		}
+		return sms.NewVerificationCodeValid(d, &t), nil
 	default:
 		return nil, errors.Errorf("received unexpected message template type: %s", m.TemplateType)
 	}

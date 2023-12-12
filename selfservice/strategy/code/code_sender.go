@@ -6,6 +6,7 @@ package code
 import (
 	"context"
 	"encoding/json"
+	"github.com/ory/kratos/courier/template/sms"
 	"net/http"
 	"net/url"
 
@@ -142,6 +143,9 @@ func (s *Sender) SendVerificationCode(ctx context.Context, f *verification.Flow,
 	address, err := s.deps.IdentityPool().FindVerifiableAddressByValue(ctx, via, to)
 	if err != nil {
 		if errors.Is(err, sqlcon.ErrNoRows) {
+			if via == identity.VerifiableAddressTypePhone {
+				return errors.Cause(ErrUnknownAddress)
+			}
 			s.deps.Audit().
 				WithField("via", via).
 				WithSensitiveField("email_address", address).
@@ -201,22 +205,39 @@ func (s *Sender) SendVerificationCodeTo(ctx context.Context, f *verification.Flo
 		return err
 	}
 
-	if err := s.send(ctx, string(code.VerifiableAddress.Via), email.NewVerificationCodeValid(s.deps,
-		&email.VerificationCodeValidModel{
-			To:               code.VerifiableAddress.Value,
-			VerificationURL:  s.constructVerificationLink(ctx, f.ID, codeString),
-			Identity:         model,
-			VerificationCode: codeString,
-			TransientPayload: transientPayload,
-			Branding:         branding,
-		})); err != nil {
+	var template interface{}
+	via := string(code.VerifiableAddress.Via)
+	switch cases := stringsx.SwitchExact(via); {
+	case cases.AddCase(identity.AddressTypeEmail):
+		template = email.NewVerificationCodeValid(s.deps,
+			&email.VerificationCodeValidModel{
+				To:               code.VerifiableAddress.Value,
+				VerificationURL:  s.constructVerificationLink(ctx, f.ID, codeString),
+				Identity:         model,
+				VerificationCode: codeString,
+				TransientPayload: transientPayload,
+				Branding:         branding,
+			})
+	case cases.AddCase(identity.AddressTypePhone):
+		template = sms.NewVerificationCodeValid(s.deps,
+			&sms.VerificationCodeValidModel{
+				To:               code.VerifiableAddress.Value,
+				VerificationURL:  s.constructVerificationLink(ctx, f.ID, codeString),
+				Identity:         model,
+				VerificationCode: codeString,
+				TransientPayload: transientPayload,
+			})
+	default:
+		return cases.ToUnknownCaseErr()
+	}
+	if err := s.send(ctx, via, template); err != nil {
 		return err
 	}
 	code.VerifiableAddress.Status = identity.VerifiableAddressStatusSent
 	return s.deps.PrivilegedIdentityPool().UpdateVerifiableAddress(ctx, code.VerifiableAddress)
 }
 
-func (s *Sender) send(ctx context.Context, via string, t courier.EmailTemplate) error {
+func (s *Sender) send(ctx context.Context, via string, t interface{}) error {
 	switch f := stringsx.SwitchExact(via); {
 	case f.AddCase(identity.AddressTypeEmail):
 		c, err := s.deps.Courier(ctx)
@@ -224,7 +245,15 @@ func (s *Sender) send(ctx context.Context, via string, t courier.EmailTemplate) 
 			return err
 		}
 
-		_, err = c.QueueEmail(ctx, t)
+		_, err = c.QueueEmail(ctx, t.(courier.EmailTemplate))
+		return err
+	case f.AddCase(identity.AddressTypePhone):
+		c, err := s.deps.Courier(ctx)
+		if err != nil {
+			return err
+		}
+
+		_, err = c.QueueSMS(ctx, t.(courier.SMSTemplate))
 		return err
 	default:
 		return f.ToUnknownCaseErr()

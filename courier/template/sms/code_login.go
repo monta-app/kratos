@@ -37,7 +37,7 @@ func (t *CodeMessage) UseStandbySender() bool {
 }
 
 func (t *CodeMessage) SMSBody(ctx context.Context) (string, error) {
-	return template.LoadText(ctx, t.d, os.DirFS(t.d.CourierConfig().CourierTemplatesRoot(ctx)), "login/sms.body.gotmpl", "login/sms.body*", t.m, t.d.CourierConfig().CourierTemplatesVerificationValidSMS(ctx))
+	return template.LoadText(ctx, t.d, os.DirFS(t.d.CourierConfig().CourierTemplatesRoot(ctx)), "login/sms.body.gotmpl", "login/sms.body*", t.m, t.d.CourierConfig().CourierTemplatesLoginValidSMS(ctx))
 }
 
 func (t *CodeMessage) MarshalJSON() ([]byte, error) {
