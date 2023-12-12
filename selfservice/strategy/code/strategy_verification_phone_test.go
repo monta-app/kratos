@@ -94,8 +94,8 @@ func TestPhoneVerification(t *testing.T) {
 							v.Set("phone", verificationPhone)
 							v.Set("code", "invalid_code")
 						},
-						http.StatusBadRequest, f)
-					assertx.EqualAsJSON(t, text.NewErrorValidationInvalidCode(),
+						http.StatusOK, f)
+					assertx.EqualAsJSON(t, text.NewErrorValidationVerificationCodeInvalidOrAlreadyUsed(),
 						json.RawMessage(gjson.Get(body, "ui.messages.0").Raw), "%s", body)
 				})
 			})
@@ -122,7 +122,7 @@ func TestPhoneVerification(t *testing.T) {
 
 					message := testhelpers.CourierExpectMessage(t, reg, verificationPhone, "")
 
-					var smsModel sms.CodeMessageModel
+					var smsModel sms.VerificationCodeValidModel
 					err := json.Unmarshal(message.TemplateData, &smsModel)
 					assert.NoError(t, err)
 
@@ -130,13 +130,11 @@ func TestPhoneVerification(t *testing.T) {
 						func(v url.Values) {
 							v.Set("method", "code")
 							v.Set("phone", verificationPhone)
-							v.Set("code", smsModel.Code)
+							v.Set("code", smsModel.VerificationCode)
 						})
 					assert.EqualValues(t, verificationUse, gjson.Get(body, "active").String(), "%s", body)
-					assert.EqualValues(t, verificationPhone,
-						gjson.Get(body, "ui.nodes.#(attributes.name==phone).attributes.value").String(), "%s", body)
 
-					assert.EqualValues(t, "passed_challenge", gjson.Get(body, "state").String())
+					assert.EqualValues(t, "passed_challenge", gjson.Get(body, "state").String(), "%s", body)
 					assert.EqualValues(t, text.NewInfoSelfServicePhoneVerificationSuccessful().Text,
 						gjson.Get(body, "ui.messages.0.text").String())
 					id, err := reg.PrivilegedIdentityPool().GetIdentityConfidential(ctx, identityToVerify.ID)
@@ -148,7 +146,6 @@ func TestPhoneVerification(t *testing.T) {
 					assert.True(t, address.Verified)
 					assert.EqualValues(t, identity.VerifiableAddressStatusCompleted, address.Status)
 					assert.True(t, time.Time(*address.VerifiedAt).Add(time.Second*5).After(time.Now()))
-
 				})
 			})
 		}

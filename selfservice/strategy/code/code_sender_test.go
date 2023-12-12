@@ -6,6 +6,7 @@ package code_test
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -113,8 +114,8 @@ func TestSender(t *testing.T) {
 
 			require.NoError(t, reg.VerificationFlowPersister().CreateVerificationFlow(context.Background(), f))
 
-			require.NoError(t, reg.CodeSender().SendVerificationCode(context.Background(), f, "email", "tracked@ory.sh"))
-			require.ErrorIs(t, reg.CodeSender().SendVerificationCode(context.Background(), f, "email", "not-tracked@ory.sh"), code.ErrUnknownAddress)
+			require.NoError(t, reg.CodeSender().SendVerificationCode(context.Background(), f, "email", "tracked@ory.sh", json.RawMessage(`{}`)))
+			require.ErrorIs(t, reg.CodeSender().SendVerificationCode(context.Background(), f, "email", "not-tracked@ory.sh", json.RawMessage(`{}`)), code.ErrUnknownAddress)
 		}
 
 		t.Run("case=with default templates", func(t *testing.T) {

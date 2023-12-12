@@ -1742,6 +1742,9 @@
           "additionalProperties": false,
           "type": "object",
           "properties": {
+            "login": {
+              "$ref": "#/definitions/courierTemplates"
+            },
             "recovery": {
               "$ref": "#/definitions/courierTemplates"
             },

@@ -201,6 +201,7 @@ const (
 	CodeSMSSpamProtectionEnabled                             = "selfservice.methods.code.config.sms_spam_protection.enabled"
 	CodeSMSSpamProtectionMaxSingleNumber                     = "selfservice.methods.code.config.sms_spam_protection.max_single_number"
 	CodeSMSSpamProtectionMaxNumbersRange                     = "selfservice.methods.code.config.sms_spam_protection.max_numbers_range"
+	ViperKeyCourierTemplatesLoginValidSMS                    = "courier.templates.login.valid.sms"
 	ViperKeyCourierTemplatesVerificationValidSMS             = "courier.templates.verification.valid.sms"
 )
 
@@ -288,6 +289,7 @@ type (
 		CourierTemplatesRoot(ctx context.Context) string
 		CourierTemplatesVerificationInvalid(ctx context.Context) *CourierEmailTemplate
 		CourierTemplatesVerificationValid(ctx context.Context) *CourierEmailTemplate
+		CourierTemplatesLoginValidSMS(ctx context.Context) string
 		CourierTemplatesVerificationValidSMS(ctx context.Context) string
 		CourierTemplatesRecoveryInvalid(ctx context.Context) *CourierEmailTemplate
 		CourierTemplatesRecoveryValid(ctx context.Context) *CourierEmailTemplate
@@ -1480,6 +1482,10 @@ func (p *Config) SelfServiceCodeSMSSpamProtectionMaxSingleNumber() int {
 
 func (p *Config) SelfServiceCodeSMSSpamProtectionMaxNumbersRange() int {
 	return p.p.Int(CodeSMSSpamProtectionMaxNumbersRange)
+}
+
+func (p *Config) CourierTemplatesLoginValidSMS(ctx context.Context) string {
+	return p.GetProvider(ctx).String(ViperKeyCourierTemplatesLoginValidSMS)
 }
 
 func (p *Config) CourierTemplatesVerificationValidSMS(ctx context.Context) string {

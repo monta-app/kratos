@@ -36,9 +36,10 @@ func TestNewSMSTemplateFromMessage(t *testing.T) {
 	ctx := context.Background()
 
 	for tmplType, expectedTmpl := range map[courier.TemplateType]courier.SMSTemplate{
-		courier.TypeOTP:      sms.NewOTPMessage(reg, &sms.OTPMessageModel{To: "+12345678901"}),
-		courier.TypeTestStub: sms.NewTestStub(reg, &sms.TestStubModel{To: "+12345678901", Body: "test body"}),
-		courier.TypeCode:     sms.NewCodeMessage(reg, &sms.CodeMessageModel{To: "+12345678901"}),
+		courier.TypeOTP:                   sms.NewOTPMessage(reg, &sms.OTPMessageModel{To: "+12345678901"}),
+		courier.TypeTestStub:              sms.NewTestStub(reg, &sms.TestStubModel{To: "+12345678901", Body: "test body"}),
+		courier.TypeCode:                  sms.NewCodeMessage(reg, &sms.CodeMessageModel{To: "+12345678901"}),
+		courier.TypeVerificationCodeValid: sms.NewVerificationCodeValid(reg, &sms.VerificationCodeValidModel{To: "+12345678901"}),
 	} {
 		t.Run(fmt.Sprintf("case=%s", tmplType), func(t *testing.T) {
 			tmplData, err := json.Marshal(expectedTmpl)
@@ -68,7 +69,7 @@ func TestNewSMSTemplateFromMessage(t *testing.T) {
 func TestRemoteTemplate(t *testing.T) {
 	ctx := context.Background()
 	conf, reg := internal.NewFastRegistryWithMocks(t)
-	conf.MustSet(ctx, config.ViperKeyCourierTemplatesVerificationValidSMS, "base64://VGVzdCBjb2RlOiB7eyAuQ29kZSB9fQ==")
+	conf.MustSet(ctx, config.ViperKeyCourierTemplatesLoginValidSMS, "base64://VGVzdCBjb2RlOiB7eyAuQ29kZSB9fQ==")
 	expectedTmpl := sms.NewCodeMessage(reg, &sms.CodeMessageModel{To: "+12345678901", Code: "1234"})
 
 	tmplData, err := json.Marshal(expectedTmpl)

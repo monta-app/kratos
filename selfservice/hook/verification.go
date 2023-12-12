@@ -8,8 +8,6 @@ import (
 	"github.com/ory/x/decoderx"
 	"net/http"
 
-	"github.com/pkg/errors"
-
 	"github.com/ory/kratos/driver/config"
 	"github.com/ory/kratos/identity"
 	"github.com/ory/kratos/selfservice/flow"
@@ -91,23 +89,9 @@ func (e *Verifier) do(r *http.Request, i *identity.Identity, f flow.Flow) error 
 			return err
 		}
 
-		switch address.Via {
-		case identity.AddressTypeEmail:
-			if err := strategy.SendVerificationEmail(r.Context(), verificationFlow, i, address); err != nil {
-				return err
-			}
-		case identity.AddressTypePhone:
-			if err := e.r.CodeAuthenticationService().SendCode(r.Context(), verificationFlow, address.Value, body.TransientPayload); err != nil {
-				return err
-			}
-			address.Status = identity.VerifiableAddressStatusSent
-			if err := e.r.PrivilegedIdentityPool().UpdateVerifiableAddress(r.Context(), address); err != nil {
-				return err
-			}
-		default:
-			return errors.New("Unexpected via type")
+		if err := strategy.SendVerification(r.Context(), verificationFlow, i, address, body.TransientPayload); err != nil {
+			return err
 		}
-
 	}
 	return nil
 }
