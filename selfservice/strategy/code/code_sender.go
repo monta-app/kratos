@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/ory/kratos/courier/template/sms"
+	"github.com/ory/x/randx"
 	"net/http"
 	"net/url"
 
@@ -159,6 +160,11 @@ func (s *Sender) SendVerificationCode(ctx context.Context, f *verification.Flow,
 	}
 
 	rawCode := GenerateCode()
+	//TODO delete after PS-187
+	if via == identity.VerifiableAddressTypePhone {
+		rawCode = randx.MustString(4, randx.Numeric)
+	}
+
 	var code *VerificationCode
 	if code, err = s.deps.VerificationCodePersister().CreateVerificationCode(ctx, &CreateVerificationCodeParams{
 		RawCode:           rawCode,

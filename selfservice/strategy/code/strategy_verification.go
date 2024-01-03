@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/ory/jsonschema/v3"
+	"github.com/ory/x/randx"
 	"net/http"
 	"net/url"
 	"time"
@@ -434,6 +435,10 @@ func (s *Strategy) SendVerification(ctx context.Context, f *verification.Flow, i
 	transientPayload json.RawMessage, branding string) (err error) {
 
 	rawCode := GenerateCode()
+	//TODO delete after PS-187
+	if a.Via == identity.VerifiableAddressTypePhone {
+		rawCode = randx.MustString(4, randx.Numeric)
+	}
 
 	code, err := s.deps.VerificationCodePersister().CreateVerificationCode(ctx, &CreateVerificationCodeParams{
 		RawCode:           rawCode,
