@@ -302,6 +302,7 @@ func newOIDCProvider(
 		IssuerURL:        hydraPublic + "/",
 		Mapper:           "file://./stub/oidc.hydra.jsonnet",
 		AllowedAudiences: allowedAudiences,
+		LoginMapper:      "file://./stub/oidc.hydra.login.jsonnet",
 	}
 }
 
