@@ -5,6 +5,11 @@ package code_test
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -73,4 +78,51 @@ func TestMaskAddress(t *testing.T) {
 			assert.Equal(t, tc.expected, code.MaskAddress(tc.address))
 		})
 	}
+}
+
+func initExternalSMSVerifier(t *testing.T, ctx context.Context, conf *config.Config, mapperFile string,
+	externalVerifyRequestBody *string, externalVerifyResult *string) *httptest.Server {
+	vs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rb, err := io.ReadAll(r.Body)
+		assert.NoError(t, err)
+		requestBody := string(rb)
+		verifyResult := ""
+		if strings.HasSuffix(r.URL.Path, "start") {
+			verifyResult = "code has been sent"
+		} else if strings.HasSuffix(r.URL.Path, "check") {
+			if strings.Contains(requestBody, "0000") {
+				verifyResult = "code valid"
+			} else {
+				verifyResult = "code invalid"
+				w.WriteHeader(http.StatusBadRequest)
+			}
+		}
+		*externalVerifyRequestBody = requestBody
+		*externalVerifyResult = verifyResult
+	}))
+
+	t.Cleanup(vs.Close)
+
+	requestConfig := `{
+		"url": "%s",
+		"method": "POST",
+		"body": "%s",
+		"auth": {
+			"type": "basic_auth",
+			"config": {
+				"user":     "me",
+				"password": "12345"
+			}
+		}
+	}`
+	verificationStartRequest := fmt.Sprintf(requestConfig, vs.URL+"/start", mapperFile)
+	verificationCheckRequest := fmt.Sprintf(requestConfig, vs.URL+"/check", mapperFile)
+
+	conf.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+"."+string(recovery.RecoveryStrategyCode)+".external_sms_verify", fmt.Sprintf(`{
+			"enabled": true,
+			"verification_start_request": %s,
+			"verification_check_request": %s
+		}`, verificationStartRequest, verificationCheckRequest))
+
+	return vs
 }

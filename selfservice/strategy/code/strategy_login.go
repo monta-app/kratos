@@ -195,6 +195,8 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 		}
 		return nil, nil
 	case flow.StateEmailSent:
+		fallthrough
+	case flow.StateSMSSent:
 		i, err := s.loginVerifyCode(ctx, r, f, &p)
 		if err != nil {
 			return nil, s.HandleLoginError(r, f, &p, err)
@@ -237,9 +239,15 @@ func (s *Strategy) loginSendCode(ctx context.Context, w http.ResponseWriter, r *
 		if err != nil {
 			return err
 		}
+		address, found := lo.Find(i.VerifiableAddresses, func(va identity.VerifiableAddress) bool {
+			return va.Value == p.Identifier
+		})
+		if !found {
+			return errors.WithStack(schema.NewUnknownAddressError())
+		}
 		addresses = []Address{{
 			To:  p.Identifier,
-			Via: identity.CodeAddressType(identity.AddressTypeEmail),
+			Via: address.Via,
 		}}
 	}
 
@@ -319,10 +327,33 @@ func (s *Strategy) loginVerifyCode(ctx context.Context, r *http.Request, f *logi
 	}
 
 	loginCode, err := s.deps.LoginCodePersister().UseLoginCode(ctx, f.ID, i.ID, p.Code)
-	if err != nil {
-		if errors.Is(err, ErrCodeNotFound) {
-			return nil, schema.NewLoginCodeInvalid()
+	if errors.Is(err, ErrCodeNotFound) {
+		loginCode, err = s.deps.LoginCodePersister().UseLoginCode(ctx, f.ID, i.ID, "external")
+		if err != nil {
+			if errors.Is(err, ErrCodeNotFound) {
+				return nil, schema.NewLoginCodeInvalid()
+			}
+			return nil, errors.WithStack(err)
 		}
+
+		if !s.deps.Config().SelfServiceCodeStrategy(r.Context()).ExternalSMSVerify.Enabled ||
+			loginCode.AddressType != identity.AddressTypePhone {
+			return nil, errors.WithStack(errors.New("External SMS verify disabled or unexpected address type: " + loginCode.AddressType))
+		}
+
+		id, err := s.deps.IdentityPool().GetIdentity(ctx, loginCode.IdentityID, identity.ExpandDefault)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		err = s.deps.CodeSender().CheckWithExternalVerifier(r.Context(), f, id,
+			Address{To: loginCode.Address, Via: loginCode.AddressType}, p.Code)
+		if err != nil {
+			if errors.Is(err, ErrCodeNotFound) {
+				return nil, schema.NewLoginCodeInvalid()
+			}
+			return nil, errors.WithStack(err)
+		}
+	} else if err != nil {
 		return nil, errors.WithStack(err)
 	}
 

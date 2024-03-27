@@ -80,7 +80,7 @@
           "description": "Please accept the terms and conditions"
         }
       },
-      "required": ["email", "tos"]
+      "required": ["phone", "tos"]
     }
   }
 }
