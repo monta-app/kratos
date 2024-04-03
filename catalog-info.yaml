@@ -1,0 +1,24 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  # Name of the project 
+  name: service-kratos
+  description: N/A
+  # Specifies the directory of the docs
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+
+  # See notion page for more info: https://www.notion.so/montaapp/Service-Tiers-035d974e192d496a962f409bc0808a53?pvs=4
+  labels:
+    tier: '1'
+
+
+# The spec defines who becomes the owner of the system in backstage
+spec:
+  type: service
+  # See lifecycle common values: https://backstage.io/docs/features/software-catalog/descriptor-format/#speclifecycle-required
+  lifecycle: production
+  # Name of the squad responsible for the project, e.g. sre or cpi
+  owner: Platform Services
+  # Name of the greater system, e.g. "solar" is a part of the home system
+  system: Platform
