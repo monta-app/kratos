@@ -148,17 +148,18 @@ func (p *Persister) UseVerificationCode(ctx context.Context, fID uuid.UUID, code
 
 	if err := sqlcon.HandleError(p.Transaction(ctx, func(ctx context.Context, tx *pop.Connection) (err error) {
 
-		if err := sqlcon.HandleError(
-			tx.RawQuery(
-				/* #nosec G201 TableName is static */
-				fmt.Sprintf("UPDATE %s SET submit_count = submit_count + 1 WHERE id = ? AND nid = ?", flowTableName),
-				fID,
-				nid,
-			).Exec(),
-		); err != nil {
-			return err
+		if codeVal != "external" {
+			if err := sqlcon.HandleError(
+				tx.RawQuery(
+					/* #nosec G201 TableName is static */
+					fmt.Sprintf("UPDATE %s SET submit_count = submit_count + 1 WHERE id = ? AND nid = ?", flowTableName),
+					fID,
+					nid,
+				).Exec(),
+			); err != nil {
+				return err
+			}
 		}
-
 		var submitCount int
 		// Because MySQL does not support "RETURNING" clauses, but we need the updated `submit_count` later on.
 		if err := sqlcon.HandleError(

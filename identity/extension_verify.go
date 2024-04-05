@@ -5,6 +5,7 @@ package identity
 
 import (
 	"fmt"
+	"github.com/nyaruka/phonenumbers"
 	"strings"
 	"sync"
 	"time"
@@ -30,11 +31,11 @@ func (r *SchemaExtensionVerification) Run(ctx jsonschema.ValidationContext, s sc
 	defer r.l.Unlock()
 
 	if s.Credentials.Code.Identifier {
-		if err := r.checkTelFormat(ctx, value); err != nil {
+		normalized, err := r.normalizePhone(ctx, value)
+		if err != nil {
 			return err
 		}
-		address := NewVerifiablePhoneAddress(fmt.Sprintf("%s", value), r.i.ID)
-		r.appendAddress(address)
+		r.appendAddress(NewVerifiablePhoneAddress(*normalized, r.i.ID))
 	}
 
 	switch s.Verification.Via {
@@ -52,13 +53,11 @@ func (r *SchemaExtensionVerification) Run(ctx jsonschema.ValidationContext, s sc
 		return nil
 
 	case AddressTypePhone:
-		if err := r.checkTelFormat(ctx, value); err != nil {
+		normalized, err := r.normalizePhone(ctx, value)
+		if err != nil {
 			return err
 		}
-
-		address := NewVerifiablePhoneAddress(fmt.Sprintf("%s", value), r.i.ID)
-
-		r.appendAddress(address)
+		r.appendAddress(NewVerifiablePhoneAddress(*normalized, r.i.ID))
 
 		return nil
 
@@ -96,19 +95,12 @@ func has(haystack []VerifiableAddress, needle *VerifiableAddress) *VerifiableAdd
 	return nil
 }
 
-func (r *SchemaExtensionVerification) checkTelFormat(ctx jsonschema.ValidationContext, value interface{}) error {
-	validationError := ctx.Error("format", "%q is not valid %q", value, "phone")
-	num, ok := value.(string)
-	if !ok {
-		return validationError
+func (r *SchemaExtensionVerification) normalizePhone(ctx jsonschema.ValidationContext, value interface{}) (*string, error) {
+	phoneNumber, err := phonenumbers.Parse(fmt.Sprintf("%s", value), "")
+	if err != nil {
+		validationError := ctx.Error("format", "%s", err)
+		return nil, validationError
 	}
-	for _, n := range r.codeTestNumbers {
-		if num == n {
-			return nil
-		}
-	}
-	if !jsonschema.Formats["tel"](num) {
-		return validationError
-	}
-	return nil
+	normalized := fmt.Sprintf("+%d%d", *phoneNumber.CountryCode, *phoneNumber.NationalNumber)
+	return &normalized, nil
 }

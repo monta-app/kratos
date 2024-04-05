@@ -133,7 +133,7 @@ func (s *Strategy) Register(w http.ResponseWriter, r *http.Request, f *registrat
 		}
 		return s.handleRegistrationError(w, r, f, &p, NewCodeSentError())
 	} else {
-		code, err := s.deps.CodeAuthenticationService().VerifyCode(r.Context(), f, p.Code)
+		code, err := s.deps.CodeAuthenticationService().VerifyCode(r.Context(), f, p.Code, p.TransientPayload)
 		if err != nil {
 			return s.handleRegistrationError(w, r, f, &p, err)
 		}
@@ -162,7 +162,7 @@ func (s *Strategy) PopulateRegistrationMethod(r *http.Request, f *registration.F
 		return nil
 	}
 
-	return s.populateMethod(r, f.UI, text.NewInfoRegistration())
+	return s.populateMethod(r, f, text.NewInfoRegistration())
 }
 
 func (s *Strategy) UpsertCodeNode(ctx context.Context, f *registration.Flow) error {

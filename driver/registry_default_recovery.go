@@ -87,3 +87,11 @@ func (m *RegistryDefault) CodeSender() *code.Sender {
 
 	return m.selfserviceCodeSender
 }
+
+func (m *RegistryDefault) ExternalVerifier() *code.ExternalVerifier {
+	if m.selfserviceExternalVerifier == nil {
+		m.selfserviceExternalVerifier = code.NewExternalVerifier(m)
+	}
+
+	return m.selfserviceExternalVerifier
+}

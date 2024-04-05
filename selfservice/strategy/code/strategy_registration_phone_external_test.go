@@ -1,0 +1,263 @@
+// Copyright © 2023 Ory Corp
+// SPDX-License-Identifier: Apache-2.0
+
+package code_test
+
+import (
+	"context"
+	_ "embed"
+	"encoding/json"
+	"fmt"
+	"github.com/nyaruka/phonenumbers"
+	"github.com/ory/kratos/selfservice/flow/registration"
+	"github.com/ory/x/randx"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
+
+	"github.com/ory/kratos/driver"
+	"github.com/ory/kratos/driver/config"
+	"github.com/ory/kratos/identity"
+	"github.com/ory/kratos/internal"
+	oryClient "github.com/ory/kratos/internal/httpclient"
+	"github.com/ory/kratos/internal/testhelpers"
+)
+
+func TestRegistrationCodeStrategySMSExternal(t *testing.T) {
+	type ApiType string
+
+	const (
+		ApiTypeBrowser ApiType = "browser"
+		ApiTypeSPA     ApiType = "spa"
+		ApiTypeNative  ApiType = "api"
+	)
+
+	type state struct {
+		flow           *oryClient.RegistrationFlow
+		client         *http.Client
+		phone          string
+		testServer     *httptest.Server
+		resultIdentity *identity.Identity
+	}
+
+	setup := func(ctx context.Context, t *testing.T) (*config.Config, *driver.RegistryDefault, *httptest.Server) {
+		conf, reg := internal.NewFastRegistryWithMocks(t)
+		testhelpers.SetDefaultIdentitySchema(conf, "file://./stub/default.schema.json")
+		conf.MustSet(ctx, fmt.Sprintf("%s.%s.enabled", config.ViperKeySelfServiceStrategyConfig, identity.CredentialsTypePassword.String()), false)
+		conf.MustSet(ctx, fmt.Sprintf("%s.%s.enabled", config.ViperKeySelfServiceStrategyConfig, identity.CredentialsTypeCode.String()), true)
+		conf.MustSet(ctx, fmt.Sprintf("%s.%s.passwordless_enabled", config.ViperKeySelfServiceStrategyConfig, identity.CredentialsTypeCode), true)
+		conf.MustSet(ctx, config.ViperKeySelfServiceRegistrationAfter+".code.hooks", []map[string]interface{}{
+			{"hook": "session"},
+		})
+
+		_ = testhelpers.NewRegistrationUIFlowEchoServer(t, reg)
+		_ = testhelpers.NewErrorTestServer(t, reg)
+		_ = newReturnTs(t, reg)
+
+		public, _ := testhelpers.NewKratosServer(t, reg)
+
+		return conf, reg, public
+	}
+
+	ctx := context.Background()
+	conf, reg, public := setup(ctx, t)
+
+	var externalVerifyResult string
+	var externalVerifyRequestBody string
+	initExternalSMSVerifier(t, ctx, conf, "file://./stub/request.config.external_login.jsonnet",
+		&externalVerifyRequestBody, &externalVerifyResult)
+
+	createRegistrationFlow := func(ctx context.Context, t *testing.T, public *httptest.Server, apiType ApiType) *state {
+		t.Helper()
+
+		var client *http.Client
+
+		if apiType == ApiTypeNative {
+			client = &http.Client{}
+		} else {
+			client = testhelpers.NewClientWithCookies(t)
+		}
+
+		client.Transport = testhelpers.NewTransportWithLogger(http.DefaultTransport, t).RoundTripper
+
+		var clientInit *oryClient.RegistrationFlow
+		if apiType == ApiTypeNative {
+			clientInit = testhelpers.InitializeRegistrationFlowViaAPI(t, client, public)
+		} else {
+			clientInit = testhelpers.InitializeRegistrationFlowViaBrowser(t, client, public, apiType == ApiTypeSPA, false, false)
+		}
+
+		body, err := json.Marshal(clientInit)
+		require.NoError(t, err)
+
+		csrfToken := gjson.GetBytes(body, "ui.nodes.#(attributes.name==csrf_token).attributes.value").String()
+		if apiType == ApiTypeNative {
+			require.Emptyf(t, csrfToken, "expected an empty value for csrf_token on native api flows but got %s", body)
+		} else {
+			require.NotEmpty(t, csrfToken)
+		}
+
+		return &state{
+			client:     client,
+			flow:       clientInit,
+			testServer: public,
+		}
+	}
+
+	type onSubmitAssertion func(ctx context.Context, t *testing.T, s *state, body string, resp *http.Response)
+
+	registerNewUser := func(ctx context.Context, t *testing.T, s *state, apiType ApiType, submitAssertion onSubmitAssertion) *state {
+		t.Helper()
+
+		if s.phone == "" {
+			s.phone = testhelpers.RandomPhone()
+		}
+
+		rf, resp, err := testhelpers.NewSDKCustomClient(s.testServer, s.client).FrontendApi.GetRegistrationFlow(context.Background()).Id(s.flow.Id).Execute()
+		require.NoError(t, err)
+		require.EqualValues(t, http.StatusOK, resp.StatusCode)
+
+		values := testhelpers.SDKFormFieldsToURLValues(rf.Ui.Nodes)
+		values.Set("traits.phone", s.phone)
+		values.Set("traits.tos", "1")
+		values.Set("method", "code")
+
+		body, resp := testhelpers.RegistrationMakeRequest(t, apiType == ApiTypeNative, apiType == ApiTypeSPA, rf, s.client, testhelpers.EncodeFormAsJSON(t, apiType == ApiTypeNative, values))
+
+		if submitAssertion != nil {
+			submitAssertion(ctx, t, s, body, resp)
+			return s
+		}
+		t.Logf("%v", body)
+
+		if apiType == ApiTypeBrowser {
+			require.EqualValues(t, http.StatusOK, resp.StatusCode, "%s", body)
+		} else {
+			require.EqualValues(t, http.StatusOK, resp.StatusCode, "%s", body)
+		}
+
+		csrfToken := gjson.Get(body, "ui.nodes.#(attributes.name==csrf_token).attributes.value").String()
+		if apiType == ApiTypeNative {
+			assert.Emptyf(t, csrfToken, "expected an empty value for csrf_token on native api flows but got %s", body)
+		} else {
+			assert.NotEmptyf(t, csrfToken, "%s", body)
+		}
+
+		return s
+	}
+
+	submitOTP := func(ctx context.Context, t *testing.T, reg *driver.RegistryDefault, s *state, vals func(v *url.Values), apiType ApiType) *state {
+		t.Helper()
+
+		values := url.Values{}
+		// the sdk to values always adds resend which isn't what we always need here.
+		// so we delete it here.
+		// the custom vals func can add it again if needed.
+		values.Del("resend")
+		values.Set("method", "code")
+		values.Set("traits.phone", s.phone)
+		vals(&values)
+
+		browserReturnURL := conf.SelfServiceFlowRegistrationUI(ctx).String()
+		if apiType == ApiTypeBrowser && values.Has("code") {
+			browserReturnURL = conf.SelfServiceBrowserDefaultReturnTo(ctx).String()
+		}
+		testhelpers.SubmitRegistrationFormWithFlow(t, apiType == ApiTypeNative, s.client, func(v url.Values) {
+			for k, value := range values {
+				v.Set(k, value[0])
+			}
+		},
+			apiType == ApiTypeSPA, http.StatusOK,
+			testhelpers.ExpectURL(apiType == ApiTypeNative || apiType == ApiTypeSPA, public.URL+registration.RouteSubmitFlow, browserReturnURL),
+			s.flow)
+
+		phoneNumber, err := phonenumbers.Parse(fmt.Sprintf("%s", s.phone), "")
+		require.NoError(t, err)
+		e164 := fmt.Sprintf("+%d%d", *phoneNumber.CountryCode, *phoneNumber.NationalNumber)
+
+		verifiableAddress, err := reg.PrivilegedIdentityPool().FindVerifiableAddressByValue(ctx, identity.VerifiableAddressTypePhone, e164)
+		require.NoError(t, err)
+		require.Equal(t, strings.ToLower(e164), verifiableAddress.Value)
+
+		id, err := reg.PrivilegedIdentityPool().GetIdentityConfidential(ctx, verifiableAddress.IdentityID)
+		require.NoError(t, err)
+		require.NotNil(t, id.ID)
+
+		_, ok := id.GetCredentials(identity.CredentialsTypeCode)
+		require.True(t, ok)
+
+		s.resultIdentity = id
+		return s
+	}
+
+	for _, tc := range []struct {
+		d       string
+		apiType ApiType
+	}{
+		{
+			d:       "SPA client",
+			apiType: ApiTypeSPA,
+		},
+		{
+			d:       "Browser client",
+			apiType: ApiTypeBrowser,
+		},
+		{
+			d:       "Native client",
+			apiType: ApiTypeNative,
+		},
+	} {
+		t.Run("flow="+tc.d, func(t *testing.T) {
+			t.Run("case=should be able to register with code identity credentials", func(t *testing.T) {
+				ctx := context.Background()
+
+				// 1. Initiate flow
+				state := createRegistrationFlow(ctx, t, public, tc.apiType)
+
+				// 2. Submit Identifier (phone)
+				state = registerNewUser(ctx, t, state, tc.apiType, nil)
+
+				assert.Contains(t, externalVerifyResult, "code has been sent")
+
+				// 3. Submit OTP
+				state = submitOTP(ctx, t, reg, state, func(v *url.Values) {
+					v.Set("code", "0000")
+				}, tc.apiType)
+
+				assert.Contains(t, externalVerifyResult, "code valid")
+
+			})
+
+			t.Run("case=should normalize phone address on sign up", func(t *testing.T) {
+				ctx := context.Background()
+
+				// 1. Initiate flow
+				state := createRegistrationFlow(ctx, t, public, tc.apiType)
+				random := strings.ToLower(randx.MustString(6, randx.Numeric))
+				sourcePhone := "+447407" + random
+				state.phone = "+4407407" + random
+				assert.NotEqual(t, sourcePhone, state.phone)
+
+				// 2. Submit Identifier (email)
+				state = registerNewUser(ctx, t, state, tc.apiType, nil)
+
+				// 3. Submit OTP
+				state = submitOTP(ctx, t, reg, state, func(v *url.Values) {
+					v.Set("code", "0000")
+				}, tc.apiType)
+
+				creds, ok := state.resultIdentity.GetCredentials(identity.CredentialsTypeCode)
+				require.True(t, ok)
+				require.Len(t, creds.Identifiers, 1)
+				assert.Equal(t, sourcePhone, creds.Identifiers[0])
+			})
+
+		})
+	}
+}

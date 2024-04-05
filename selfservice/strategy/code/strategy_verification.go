@@ -280,25 +280,41 @@ func (s *Strategy) verificationHandleFormSubmission(w http.ResponseWriter, r *ht
 }
 
 func (s *Strategy) verificationUseCode(w http.ResponseWriter, r *http.Request, body *updateVerificationFlowWithCodeMethodBody, f *verification.Flow) error {
+	var address *identity.VerifiableAddress
 	code, err := s.deps.VerificationCodePersister().UseVerificationCode(r.Context(), f.ID, body.Code)
 	if errors.Is(err, ErrCodeNotFound) {
-		f.UI.Messages.Clear()
-		f.UI.Messages.Add(text.NewErrorValidationVerificationCodeInvalidOrAlreadyUsed())
-		if err := s.deps.VerificationFlowPersister().UpdateVerificationFlow(r.Context(), f); err != nil {
+		code, err = s.deps.VerificationCodePersister().UseVerificationCode(r.Context(), f.ID, "external")
+
+		if errors.Is(err, ErrCodeNotFound) {
+			return s.handleCodeNotFoundError(w, r, f)
+		} else if err != nil {
 			return s.retryVerificationFlowWithError(w, r, f.Type, err)
 		}
 
-		// No error
-		return nil
+		if !s.deps.Config().SelfServiceCodeExternalSMSVerifyEnabled() ||
+			code.VerifiableAddress.Via != identity.VerifiableAddressTypePhone {
+			return s.retryVerificationFlowWithError(w, r, f.Type, errors.New("External SMS verify disabled or unexpected via: "+string(code.VerifiableAddress.Via)))
+		}
+
+		address = code.VerifiableAddress
+
+		err = s.deps.CodeSender().VerificationCheckWithExternalVerifier(r.Context(), body.TransientPayload, address, body.Code)
+		if errors.Is(err, ErrCodeNotFound) {
+			return s.handleCodeNotFoundError(w, r, f)
+		} else if err != nil {
+			return s.retryVerificationFlowWithError(w, r, f.Type, err)
+		}
 	} else if err != nil {
 		return s.retryVerificationFlowWithError(w, r, f.Type, err)
+	} else {
+		address = code.VerifiableAddress
 	}
 
 	if err := code.Validate(); err != nil {
 		return s.retryVerificationFlowWithError(w, r, f.Type, err)
 	}
 
-	i, err := s.deps.IdentityPool().GetIdentity(r.Context(), code.VerifiableAddress.IdentityID)
+	i, err := s.deps.IdentityPool().GetIdentity(r.Context(), address.IdentityID)
 	if err != nil {
 		return s.retryVerificationFlowWithError(w, r, f.Type, err)
 	}
@@ -307,7 +323,6 @@ func (s *Strategy) verificationUseCode(w http.ResponseWriter, r *http.Request, b
 		return s.retryVerificationFlowWithError(w, r, f.Type, err)
 	}
 
-	address := code.VerifiableAddress
 	address.Verified = true
 	verifiedAt := sqlxx.NullTime(time.Now().UTC())
 	address.VerifiedAt = &verifiedAt
@@ -433,11 +448,15 @@ func (s *Strategy) retryVerificationFlowWithError(w http.ResponseWriter, r *http
 
 func (s *Strategy) SendVerification(ctx context.Context, f *verification.Flow, i *identity.Identity, a *identity.VerifiableAddress,
 	transientPayload json.RawMessage, branding string) (err error) {
-
-	rawCode := GenerateCode()
-	//TODO delete after PS-187
-	if a.Via == identity.VerifiableAddressTypePhone {
-		rawCode = randx.MustString(4, randx.Numeric)
+	var rawCode string
+	if s.deps.Config().SelfServiceCodeExternalSMSVerifyEnabled() && a.Via == identity.AddressTypePhone {
+		rawCode = "external"
+	} else {
+		rawCode = GenerateCode()
+		//TODO delete after PS-187
+		if a.Via == identity.VerifiableAddressTypePhone {
+			rawCode = randx.MustString(4, randx.Numeric)
+		}
 	}
 
 	code, err := s.deps.VerificationCodePersister().CreateVerificationCode(ctx, &CreateVerificationCodeParams{

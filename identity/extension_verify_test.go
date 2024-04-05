@@ -328,7 +328,7 @@ func TestSchemaExtensionVerification(t *testing.T) {
 				name:      "phone:must return error for malformed input",
 				schema:    phoneSchemaPath,
 				doc:       `{"phones":["+18004444444","+18004444444","12112112"], "username": "+380634872774"}`,
-				expectErr: errors.New("I[#/phones/2] S[#/properties/phones/items/format] \"12112112\" is not valid \"phone\""),
+				expectErr: errors.New("I[#/phones/2] S[#/properties/phones/items/format] invalid country code"),
 			},
 		} {
 			t.Run(fmt.Sprintf("case=%v", tc.name), func(t *testing.T) {

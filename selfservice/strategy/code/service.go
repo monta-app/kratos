@@ -27,7 +27,7 @@ type Flow interface {
 
 type AuthenticationService interface {
 	SendCode(ctx context.Context, flow Flow, phone string, transientPayload json.RawMessage) error
-	VerifyCode(ctx context.Context, flow Flow, code string) (*Code, error)
+	VerifyCode(ctx context.Context, flow Flow, code string, transientPayload json.RawMessage) (*Code, error)
 	DoVerify(ctx context.Context, expectedCode *Code, code string) (*Code, error)
 }
 
@@ -39,6 +39,7 @@ type dependencies interface {
 	courier.ConfigProvider
 	HTTPClient(ctx context.Context, opts ...httpx.ResilientOptions) *retryablehttp.Client
 	RandomCodeGeneratorProvider
+	ExternalVerifierProvider
 }
 
 type authenticationServiceImpl struct {
@@ -92,6 +93,10 @@ func (s *authenticationServiceImpl) SendCode(
 		}
 	}
 
+	if s.r.Config().SelfServiceCodeExternalSMSVerifyEnabled() {
+		codeValue = "external"
+	}
+
 	if err := s.r.CodePersister().CreateCode(ctx, &Code{
 		FlowId:     flow.GetID(),
 		Identifier: identifier,
@@ -101,31 +106,35 @@ func (s *authenticationServiceImpl) SendCode(
 		return err
 	}
 
-	if sendSMS {
-		cr, err := s.r.Courier(ctx)
-		if err != nil {
-			return err
-		}
-		if _, err := cr.QueueSMS(
-			ctx,
-			templates.NewCodeMessage(
-				s.r,
-				&templates.CodeMessageModel{
-					Code:             codeValue,
-					To:               identifier,
-					UseStandbySender: useStandbySender,
-					TransientPayload: transientPayload,
-				}),
-		); err != nil {
-			return err
+	message := templates.NewCodeMessage(
+		s.r,
+		&templates.CodeMessageModel{
+			Code:             codeValue,
+			To:               identifier,
+			UseStandbySender: useStandbySender,
+			TransientPayload: transientPayload,
+		})
+
+	if s.r.Config().SelfServiceCodeExternalSMSVerifyEnabled() {
+		return s.r.ExternalVerifier().VerificationStart(ctx, message)
+	} else {
+		if sendSMS {
+			cr, err := s.r.Courier(ctx)
+			if err != nil {
+				return err
+			}
+			if _, err := cr.QueueSMS(ctx, message); err != nil {
+				return err
+			}
 		}
 	}
+
 	return nil
 }
 
 // VerifyCode
 // Verifies code by looking up in db.
-func (s *authenticationServiceImpl) VerifyCode(ctx context.Context, flow Flow, code string) (*Code, error) {
+func (s *authenticationServiceImpl) VerifyCode(ctx context.Context, flow Flow, code string, transientPayload json.RawMessage) (*Code, error) {
 	if err := flow.Valid(); err != nil {
 		return nil, err
 	}
@@ -136,19 +145,32 @@ func (s *authenticationServiceImpl) VerifyCode(ctx context.Context, flow Flow, c
 	if expectedCode == nil {
 		return nil, NewInvalidCodeError()
 	}
-	updatedCode, err := s.DoVerify(ctx, expectedCode, code)
-	if err != nil {
-		updateErr := s.r.CodePersister().UpdateCode(ctx, updatedCode)
-		if updateErr != nil {
-			return nil, updateErr
+	if s.r.Config().SelfServiceCodeExternalSMSVerifyEnabled() && expectedCode.Code == "external" {
+		message := templates.NewCodeMessage(s.r,
+			&templates.CodeMessageModel{
+				Code:             code,
+				To:               expectedCode.Identifier,
+				UseStandbySender: false,
+				TransientPayload: transientPayload,
+			})
+		if err = s.r.ExternalVerifier().VerificationCheck(ctx, message); err != nil {
+			return nil, err
 		}
-		return updatedCode, err
+	} else {
+		expectedCode, err = s.DoVerify(ctx, expectedCode, code)
+		if err != nil {
+			updateErr := s.r.CodePersister().UpdateCode(ctx, expectedCode)
+			if updateErr != nil {
+				return nil, updateErr
+			}
+			return expectedCode, err
+		}
 	}
 
-	if err = s.r.CodePersister().DeleteCodes(ctx, updatedCode.Identifier); err != nil {
+	if err = s.r.CodePersister().DeleteCodes(ctx, expectedCode.Identifier); err != nil {
 		return nil, err
 	}
-	return updatedCode, nil
+	return expectedCode, nil
 }
 
 func (s *authenticationServiceImpl) DoVerify(ctx context.Context, expectedCode *Code, code string) (*Code, error) {

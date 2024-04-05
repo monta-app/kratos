@@ -3,8 +3,16 @@
 
 package testhelpers
 
-import "github.com/ory/x/randx"
+import (
+	"strings"
+
+	"github.com/ory/x/randx"
+)
 
 func RandomEmail() string {
-	return randx.MustString(16, randx.Alpha) + "@ory.sh"
+	return strings.ToLower(randx.MustString(16, randx.Alpha) + "@ory.sh")
+}
+
+func RandomPhone() string {
+	return "+458001" + randx.MustString(4, randx.Numeric)
 }

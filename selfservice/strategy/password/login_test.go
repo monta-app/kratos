@@ -95,10 +95,15 @@ func TestCompleteLogin(t *testing.T) {
 	testhelpers.SetDefaultIdentitySchemaFromRaw(conf, loginSchema)
 	conf.MustSet(ctx, config.ViperKeySecretsDefault, []string{"not-a-secure-session-key"})
 
-	ensureFieldsExist := func(t *testing.T, body []byte) {
-		registrationhelpers.CheckFormContent(t, body, "identifier",
-			"password",
-			"csrf_token")
+	ensureFieldsExist := func(t *testing.T, body []byte, isAPI bool) {
+		if isAPI {
+			registrationhelpers.CheckFormContent(t, body, "identifier",
+				"password")
+		} else {
+			registrationhelpers.CheckFormContent(t, body, "identifier",
+				"password",
+				"csrf_token")
+		}
 	}
 
 	apiClient := testhelpers.NewDebugClient(t)
@@ -341,13 +346,17 @@ func TestCompleteLogin(t *testing.T) {
 	})
 
 	t.Run("should return an error because no identifier is set", func(t *testing.T) {
-		var check = func(t *testing.T, body string) {
+		var check = func(t *testing.T, body string, isAPI bool) {
 			assert.NotEmpty(t, gjson.Get(body, "id").String(), "%s", body)
 			assert.Contains(t, gjson.Get(body, "ui.action").String(), publicTS.URL+login.RouteSubmitFlow, "%s", body)
 
-			ensureFieldsExist(t, []byte(body))
+			ensureFieldsExist(t, []byte(body), isAPI)
 			assert.Equal(t, "Property identifier is missing.", gjson.Get(body, "ui.nodes.#(attributes.name==identifier).messages.0.text").String(), "%s", body)
-			assert.Len(t, gjson.Get(body, "ui.nodes").Array(), 4)
+			if isAPI {
+				assert.Len(t, gjson.Get(body, "ui.nodes").Array(), 3)
+			} else {
+				assert.Len(t, gjson.Get(body, "ui.nodes").Array(), 4)
+			}
 
 			// The password value should not be returned!
 			assert.Empty(t, gjson.Get(body, "ui.nodes.#(attributes.name==password).attributes.value").String())
@@ -360,27 +369,31 @@ func TestCompleteLogin(t *testing.T) {
 		}
 
 		t.Run("type=browser", func(t *testing.T) {
-			check(t, expectValidationError(t, false, false, false, values))
+			check(t, expectValidationError(t, false, false, false, values), false)
 		})
 
 		t.Run("type=spa", func(t *testing.T) {
-			check(t, expectValidationError(t, false, false, true, values))
+			check(t, expectValidationError(t, false, false, true, values), false)
 		})
 
 		t.Run("type=api", func(t *testing.T) {
-			check(t, expectValidationError(t, true, false, false, values))
+			check(t, expectValidationError(t, true, false, false, values), true)
 		})
 	})
 
 	t.Run("should return an error because no password is set", func(t *testing.T) {
-		var check = func(t *testing.T, body string) {
+		var check = func(t *testing.T, body string, isAPI bool) {
 			assert.NotEmpty(t, gjson.Get(body, "id").String(), "%s", body)
 			assert.Contains(t, gjson.Get(body, "ui.action").String(), publicTS.URL+login.RouteSubmitFlow, "%s", body)
 
-			ensureFieldsExist(t, []byte(body))
+			ensureFieldsExist(t, []byte(body), isAPI)
 			assert.Equal(t, "Property password is missing.", gjson.Get(body, "ui.nodes.#(attributes.name==password).messages.0.text").String(), "%s", body)
 			assert.Equal(t, "identifier", gjson.Get(body, "ui.nodes.#(attributes.name==identifier).attributes.value").String(), "%s", body)
-			assert.Len(t, gjson.Get(body, "ui.nodes").Array(), 4)
+			if isAPI {
+				assert.Len(t, gjson.Get(body, "ui.nodes").Array(), 3)
+			} else {
+				assert.Len(t, gjson.Get(body, "ui.nodes").Array(), 4)
+			}
 
 			// This must not include the password!
 			assert.Empty(t, gjson.Get(body, "ui.nodes.#(attributes.name==password).attributes.value").String())
@@ -392,23 +405,27 @@ func TestCompleteLogin(t *testing.T) {
 		}
 
 		t.Run("type=browser", func(t *testing.T) {
-			check(t, expectValidationError(t, false, false, false, values))
+			check(t, expectValidationError(t, false, false, false, values), false)
 		})
 
 		t.Run("type=api", func(t *testing.T) {
-			check(t, expectValidationError(t, true, false, false, values))
+			check(t, expectValidationError(t, true, false, false, values), true)
 		})
 	})
 
 	t.Run("should return an error both identifier and password are missing", func(t *testing.T) {
-		var check = func(t *testing.T, body string) {
+		var check = func(t *testing.T, body string, isAPI bool) {
 			assert.NotEmpty(t, gjson.Get(body, "id").String(), "%s", body)
 			assert.Contains(t, gjson.Get(body, "ui.action").String(), publicTS.URL+login.RouteSubmitFlow, "%s", body)
 
-			ensureFieldsExist(t, []byte(body))
+			ensureFieldsExist(t, []byte(body), isAPI)
 			assert.Equal(t, "Property password is missing.", gjson.Get(body, "ui.nodes.#(attributes.name==password).messages.0.text").String(), "%s", body)
 			assert.Equal(t, "Property identifier is missing.", gjson.Get(body, "ui.nodes.#(attributes.name==identifier).messages.0.text").String(), "%s", body)
-			assert.Len(t, gjson.Get(body, "ui.nodes").Array(), 4)
+			if isAPI {
+				assert.Len(t, gjson.Get(body, "ui.nodes").Array(), 3)
+			} else {
+				assert.Len(t, gjson.Get(body, "ui.nodes").Array(), 4)
+			}
 
 			// This must not include the password!
 			assert.Empty(t, gjson.Get(body, "ui.nodes.#(attributes.name==password).attributes.value").String())
@@ -420,24 +437,24 @@ func TestCompleteLogin(t *testing.T) {
 		}
 
 		t.Run("type=browser", func(t *testing.T) {
-			check(t, expectValidationError(t, false, false, false, values))
+			check(t, expectValidationError(t, false, false, false, values), false)
 		})
 
 		t.Run("type=spa", func(t *testing.T) {
-			check(t, expectValidationError(t, true, false, true, values))
+			check(t, expectValidationError(t, false, false, true, values), false)
 		})
 
 		t.Run("type=api", func(t *testing.T) {
-			check(t, expectValidationError(t, true, false, false, values))
+			check(t, expectValidationError(t, true, false, false, values), true)
 		})
 	})
 
 	t.Run("should return an error because the credentials are invalid (password not correct)", func(t *testing.T) {
-		var check = func(t *testing.T, body string) {
+		var check = func(t *testing.T, body string, isAPI bool) {
 			assert.NotEmpty(t, gjson.Get(body, "id").String(), "%s", body)
 			assert.Contains(t, gjson.Get(body, "ui.action").String(), publicTS.URL+login.RouteSubmitFlow, "%s", body)
 
-			ensureFieldsExist(t, []byte(body))
+			ensureFieldsExist(t, []byte(body), isAPI)
 			assert.Equal(t,
 				errorsx.Cause(schema.NewInvalidCredentialsError()).(*schema.ValidationError).Messages[0].Text,
 				gjson.Get(body, "ui.messages.0.text").String(),
@@ -457,14 +474,14 @@ func TestCompleteLogin(t *testing.T) {
 		}
 
 		t.Run("type=browser", func(t *testing.T) {
-			check(t, expectValidationError(t, false, false, false, values))
+			check(t, expectValidationError(t, false, false, false, values), false)
 		})
 
 		t.Run("type=api", func(t *testing.T) {
-			check(t, expectValidationError(t, true, false, false, values))
+			check(t, expectValidationError(t, true, false, false, values), true)
 		})
 		t.Run("type=spa", func(t *testing.T) {
-			check(t, expectValidationError(t, true, false, true, values))
+			check(t, expectValidationError(t, false, false, true, values), false)
 		})
 	})
 
@@ -807,11 +824,11 @@ func TestCompleteLogin(t *testing.T) {
 			v.Set("password", pwd)
 		}
 
-		var check = func(t *testing.T, body string) {
+		var check = func(t *testing.T, body string, isAPI bool) {
 			assert.NotEmpty(t, gjson.Get(body, "id").String(), "%s", body)
 			assert.Contains(t, gjson.Get(body, "ui.action").String(), publicTS.URL+login.RouteSubmitFlow, "%s", body)
 
-			ensureFieldsExist(t, []byte(body))
+			ensureFieldsExist(t, []byte(body), isAPI)
 			assert.Equal(t,
 				errorsx.Cause(schema.NewAddressNotVerifiedError()).(*schema.ValidationError).Messages[0].Text,
 				gjson.Get(body, "ui.messages.0.text").String(),
@@ -820,11 +837,11 @@ func TestCompleteLogin(t *testing.T) {
 		}
 
 		t.Run("type=browser", func(t *testing.T) {
-			check(t, expectValidationError(t, false, false, false, values))
+			check(t, expectValidationError(t, false, false, false, values), false)
 		})
 
 		t.Run("type=api", func(t *testing.T) {
-			check(t, expectValidationError(t, true, false, false, values))
+			check(t, expectValidationError(t, true, false, false, values), true)
 		})
 
 	})

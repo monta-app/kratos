@@ -40,7 +40,7 @@ func (s *Strategy) handleLoginError(w http.ResponseWriter, r *http.Request, f *l
 	if f != nil {
 		f.UI.Nodes.ResetNodes("password")
 		f.UI.Nodes.SetValueAttribute("identifier", stringsx.Coalesce(payload.Identifier, payload.LegacyIdentifier))
-		if f.Type == flow.TypeBrowser {
+		if f.Type != flow.TypeAPI {
 			f.UI.SetCSRF(s.d.GenerateCSRFToken(r))
 		}
 	}
@@ -152,7 +152,9 @@ func (s *Strategy) PopulateLoginMethod(r *http.Request, requestedAAL identity.Au
 		sr.UI.SetNode(node.NewInputField("identifier", "", node.DefaultGroup, node.InputAttributeTypeText, node.WithRequiredInputAttribute).WithMetaLabel(text.NewInfoNodeLabelID()))
 	}
 
-	sr.UI.SetCSRF(s.d.GenerateCSRFToken(r))
+	if sr.GetType() != flow.TypeAPI {
+		sr.UI.SetCSRF(s.d.GenerateCSRFToken(r))
+	}
 	sr.UI.SetNode(NewPasswordNode("password", node.InputAttributeAutocompleteCurrentPassword))
 	sr.UI.GetNodes().Append(node.NewInputField("method", "password", node.PasswordGroup, node.InputAttributeTypeSubmit).WithMetaLabel(text.NewInfoLogin()))
 

@@ -25,6 +25,7 @@
         },
         "phone": {
           "type": "string",
+          "format": "phone",
           "minLength": 11,
           "ory.sh/kratos": {
             "credentials": {

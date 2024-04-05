@@ -46,6 +46,8 @@ type (
 		VerificationCodePersistenceProvider
 
 		HTTPClient(ctx context.Context, opts ...httpx.ResilientOptions) *retryablehttp.Client
+
+		ExternalVerifierProvider
 	}
 	SenderProvider interface {
 		CodeSender() *Sender
@@ -171,10 +173,15 @@ func (s *Sender) SendVerificationCode(ctx context.Context, f *verification.Flow,
 		return err
 	}
 
-	rawCode := GenerateCode()
-	//TODO delete after PS-187
-	if via == identity.VerifiableAddressTypePhone {
-		rawCode = randx.MustString(4, randx.Numeric)
+	var rawCode string
+	if s.deps.Config().SelfServiceCodeExternalSMSVerifyEnabled() && via == identity.AddressTypePhone {
+		rawCode = "external"
+	} else {
+		rawCode = GenerateCode()
+		//TODO delete after PS-187
+		if via == identity.VerifiableAddressTypePhone {
+			rawCode = randx.MustString(4, randx.Numeric)
+		}
 	}
 
 	var code *VerificationCode
@@ -271,9 +278,41 @@ func (s *Sender) send(ctx context.Context, via string, t interface{}) error {
 			return err
 		}
 
-		_, err = c.QueueSMS(ctx, t.(courier.SMSTemplate))
+		if s.deps.Config().SelfServiceCodeExternalSMSVerifyEnabled() {
+			err = s.deps.ExternalVerifier().VerificationStart(ctx, t.(courier.SMSTemplate))
+		} else {
+			_, err = c.QueueSMS(ctx, t.(courier.SMSTemplate))
+		}
 		return err
 	default:
 		return f.ToUnknownCaseErr()
 	}
+}
+
+func (s *Sender) VerificationCheckWithExternalVerifier(ctx context.Context, transientPayload json.RawMessage,
+	address *identity.VerifiableAddress, codeString string) error {
+
+	// Get the identity associated with the recovery address
+	i, err := s.deps.IdentityPool().GetIdentity(ctx, address.IdentityID)
+	if err != nil {
+		return err
+	}
+
+	model, err := x.StructToMap(i)
+	if err != nil {
+		return err
+	}
+
+	t := sms.NewVerificationCodeValid(s.deps, &sms.VerificationCodeValidModel{
+		To:               address.Value,
+		VerificationCode: codeString,
+		Identity:         model,
+		TransientPayload: transientPayload,
+	})
+
+	if err := s.deps.ExternalVerifier().VerificationCheck(ctx, t); err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -205,6 +205,9 @@ const (
 	CodeSMSSpamProtectionMaxNumbersRange                     = "selfservice.methods.code.config.sms_spam_protection.max_numbers_range"
 	ViperKeyCourierTemplatesLoginValidSMS                    = "courier.templates.login.valid.sms"
 	ViperKeyCourierTemplatesVerificationValidSMS             = "courier.templates.verification.valid.sms"
+	ViperKeyCodeExternalSMSVerifyEnabled                     = "selfservice.methods.code.external_sms_verify.enabled"
+	ViperKeyCodeExternalSMSVerifyVerificationStartRequest    = "selfservice.methods.code.external_sms_verify.verification_start_request"
+	ViperKeyCodeExternalSMSVerifyVerificationCheckRequest    = "selfservice.methods.code.external_sms_verify.verification_check_request"
 )
 
 const (
@@ -244,6 +247,7 @@ type (
 		Enabled bool            `json:"enabled"`
 		Config  json.RawMessage `json:"config"`
 	}
+
 	Schema struct {
 		ID  string `json:"id" koanf:"id"`
 		URL string `json:"url" koanf:"url"`
@@ -1505,4 +1509,32 @@ func (p *Config) CourierTemplatesVerificationValidSMS(ctx context.Context) strin
 
 func (p *Config) GetProvider(ctx context.Context) *configx.Provider {
 	return p.c.Config(ctx, p.p)
+}
+
+func (p *Config) SelfServiceCodeExternalSMSVerifyEnabled() bool {
+	return p.p.Bool(ViperKeyCodeExternalSMSVerifyEnabled)
+}
+
+func (p *Config) SelfServiceCodeExternalSMSVerifyVerificationStartRequest() json.RawMessage {
+	verificationStartRequest := json.RawMessage("{}")
+
+	verificationStartRequest, err := json.Marshal(p.p.GetF(ViperKeyCodeExternalSMSVerifyVerificationStartRequest, verificationStartRequest))
+	if err != nil {
+		p.l.WithError(err).Warn("Unable to marshal self service strategy verification_start_request.")
+		verificationStartRequest = json.RawMessage("{}")
+	}
+
+	return verificationStartRequest
+}
+
+func (p *Config) SelfServiceCodeExternalSMSVerifyVerificationCheckRequest() json.RawMessage {
+	verificationCheckRequest := json.RawMessage("{}")
+
+	verificationCheckRequest, err := json.Marshal(p.p.GetF(ViperKeyCodeExternalSMSVerifyVerificationCheckRequest, verificationCheckRequest))
+	if err != nil {
+		p.l.WithError(err).Warn("Unable to marshal self service strategy verification_check_request.")
+		verificationCheckRequest = json.RawMessage("{}")
+	}
+
+	return verificationCheckRequest
 }

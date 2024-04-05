@@ -5,6 +5,7 @@ package code
 
 import (
 	"context"
+	"github.com/ory/kratos/selfservice/flow"
 	"net/http"
 
 	"github.com/ory/kratos/courier"
@@ -124,9 +125,22 @@ func (s *Strategy) RegisterLoginRoutes(*x.RouterPublic) {
 
 }
 
-func (s *Strategy) populateMethod(r *http.Request, c *container.Container, message *text.Message) error {
-	c.SetCSRF(s.deps.GenerateCSRFToken(r))
-	c.GetNodes().Append(node.NewInputField("method", "code", node.CodeGroup,
+func (s *Strategy) populateMethod(r *http.Request, f flow.Flow, message *text.Message) error {
+	if f.GetType() == flow.TypeBrowser {
+		f.GetUI().SetCSRF(s.deps.GenerateCSRFToken(r))
+	}
+	f.GetUI().GetNodes().Append(node.NewInputField("method", "code", node.CodeGroup,
 		node.InputAttributeTypeSubmit).WithMetaLabel(message))
+	return nil
+}
+
+func (s *Strategy) handleCodeNotFoundError(w http.ResponseWriter, r *http.Request, f *verification.Flow) error {
+	f.UI.Messages.Clear()
+	f.UI.Messages.Add(text.NewErrorValidationVerificationCodeInvalidOrAlreadyUsed())
+	if err := s.deps.VerificationFlowPersister().UpdateVerificationFlow(r.Context(), f); err != nil {
+		return s.retryVerificationFlowWithError(w, r, f.Type, err)
+	}
+
+	// No error
 	return nil
 }

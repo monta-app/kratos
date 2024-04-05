@@ -1735,6 +1735,98 @@
                       }
                     }
                   }
+                },
+                "external_sms_verify": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "title": "Delegate generation, sending and verification of codes sent with SMS to external service",
+                      "description": "If enabled, registration, login and verification flows will use extrnal service to to generate, send and verify one-time codes then fow method is 'code' and identifier is a phone number",
+                      "default": false
+                    },
+                    "verification_start_request": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "title": "HTTP address of verifications start API endpoint",
+                          "description": "This URL will be used to generate and send auth or verification code.",
+                          "examples": [
+                            "https://verify.twilio.com/v2/Services/VAXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Verifications"
+                          ],
+                          "type": "string"
+                        },
+                        "method": {
+                          "type": "string",
+                          "description": "The HTTP method to use (GET, POST, etc)."
+                        },
+                        "headers": {
+                          "type": "object",
+                          "description": "The HTTP headers that must be applied to request"
+                        },
+                        "auth": {
+                          "type": "object",
+                          "title": "Auth mechanisms",
+                          "description": "Define which auth mechanism to use",
+                          "oneOf": [
+                            {
+                              "$ref": "#/definitions/webHookAuthApiKeyProperties"
+                            },
+                            {
+                              "$ref": "#/definitions/webHookAuthBasicAuthProperties"
+                            }
+                          ]
+                        },
+                        "additionalProperties": false
+                      },
+                      "required": [
+                        "url",
+                        "method"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "verification_check_request": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "title": "HTTP address of verifications check API endpoint",
+                          "description": "This URL will be used to check auth or verification code.",
+                          "examples": [
+                            "https://verify.twilio.com/v2/Services/VAXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/VerificationCheck"
+                          ],
+                          "type": "string"
+                        },
+                        "method": {
+                          "type": "string",
+                          "description": "The HTTP method to use (GET, POST, etc)."
+                        },
+                        "headers": {
+                          "type": "object",
+                          "description": "The HTTP headers that must be applied to request"
+                        },
+                        "auth": {
+                          "type": "object",
+                          "title": "Auth mechanisms",
+                          "description": "Define which auth mechanism to use",
+                          "oneOf": [
+                            {
+                              "$ref": "#/definitions/webHookAuthApiKeyProperties"
+                            },
+                            {
+                              "$ref": "#/definitions/webHookAuthBasicAuthProperties"
+                            }
+                          ]
+                        },
+                        "additionalProperties": false
+                      },
+                      "required": [
+                        "url",
+                        "method"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
                 }
               }
             },

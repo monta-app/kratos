@@ -68,7 +68,7 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 		f.UI.Nodes.Remove("identifier")
 		return nil, s.handleLoginError(w, r, f, &p, NewCodeSentError())
 	} else {
-		code, err := s.deps.CodeAuthenticationService().VerifyCode(r.Context(), f, p.Code)
+		code, err := s.deps.CodeAuthenticationService().VerifyCode(r.Context(), f, p.Code, p.TransientPayload)
 		if err != nil {
 			return nil, s.handleLoginError(w, r, f, &p, err)
 		}
@@ -151,5 +151,5 @@ func (s *Strategy) PopulateLoginMethod(r *http.Request, requestedAAL identity.Au
 		return nil
 	}
 
-	return s.populateMethod(r, l.UI, text.NewInfoLogin())
+	return s.populateMethod(r, l, text.NewInfoLogin())
 }

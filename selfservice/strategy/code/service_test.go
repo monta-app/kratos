@@ -107,6 +107,7 @@ func TestAuthenticationServiceImpl_DoVerify(t *testing.T) {
 		tc.courierNoCalls(),
 		clock.NewMock(),
 		tc.codeGenerator("x"),
+		nil,
 	})
 
 	tc.config.MustSet(ctx, config.CodeMaxAttempts, 5)
@@ -192,7 +193,7 @@ func TestAuthenticationService_VerifyCode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := tt.service.VerifyCode(tc.context, tt.flow, tt.code); (err != nil) != tt.wantErr {
+			if _, err := tt.service.VerifyCode(tc.context, tt.flow, tt.code, json.RawMessage("{}")); (err != nil) != tt.wantErr {
 				t.Errorf("VerifyCode() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -307,6 +308,7 @@ func (tc *testContext) NewCodeAuthenticationService(
 		courier,
 		clock,
 		randomCodeGenerator,
+		nil,
 	})
 }
 
@@ -333,6 +335,7 @@ type dependencies struct {
 	courier             courier.Courier
 	clock               clock.Clock
 	randomCodeGenerator code.RandomCodeGenerator
+	externalVerifier    *code.ExternalVerifier
 }
 
 func (d *dependencies) Clock() clock.Clock {
@@ -357,3 +360,5 @@ func (d *dependencies) CourierConfig() config.CourierConfigs { return d.config }
 func (d *dependencies) HTTPClient(ctx context.Context, opts ...httpx.ResilientOptions) *retryablehttp.Client {
 	return httpx.NewResilientClient()
 }
+
+func (d *dependencies) ExternalVerifier() *code.ExternalVerifier { return d.externalVerifier }

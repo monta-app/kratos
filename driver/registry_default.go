@@ -149,8 +149,9 @@ type RegistryDefault struct {
 	selfserviceVerifyHandler        *verification.Handler
 	selfserviceVerificationExecutor *verification.HookExecutor
 
-	selfserviceLinkSender *link.Sender
-	selfserviceCodeSender *code.Sender
+	selfserviceLinkSender       *link.Sender
+	selfserviceCodeSender       *code.Sender
+	selfserviceExternalVerifier *code.ExternalVerifier
 
 	selfserviceCodeAuthenticationService code.AuthenticationService
 	selfserviceRandomCodeGenerator       code.RandomCodeGenerator
