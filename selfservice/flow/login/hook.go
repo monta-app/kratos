@@ -12,6 +12,7 @@ import (
 	"github.com/ory/x/decoderx"
 	"github.com/ory/x/sqlxx"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"net/http"
 	"path"
 	"time"
@@ -336,6 +337,13 @@ func (e *HookExecutor) linkCredentials(r *http.Request, s *session.Session, i *i
 			if innerErr != nil {
 				return innerErr
 			}
+			f.InternalContext, innerErr = sjson.SetBytes(f.InternalContext, flow.InternalContextLinkCredentialsPath, lc)
+			if innerErr != nil {
+				return innerErr
+			}
+			if innerErr = e.d.LoginFlowPersister().UpdateLoginFlow(r.Context(), f); innerErr != nil {
+				return innerErr
+			}
 		}
 	}
 
@@ -395,4 +403,3 @@ func (e *HookExecutor) checkDuplecateCredentialsIdentifierMatch(ctx context.Cont
 	}
 	return schema.NewLinkedCredentialsDoNotMatch()
 }
-

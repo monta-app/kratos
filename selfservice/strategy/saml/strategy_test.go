@@ -486,18 +486,24 @@ func TestStrategy(t *testing.T) {
 			})
 
 			t.Run("case=should start new api login flow and link saml credentials to existing identity", func(t *testing.T) {
+				f := testhelpers.InitializeLoginFlow(t, true, nil, ts, false, false)
+
 				var values = func(v url.Values) {
 					v.Set("identifier", email)
 					v.Set("password", password)
 					v.Set("linkCredentialsFlow", linkCredentialsFlow.ID.String())
 				}
-				body := testhelpers.SubmitLoginForm(t, true, nil, ts, values,
-					false, false, http.StatusOK, ts.URL+login.RouteSubmitFlow)
+				body := testhelpers.SubmitLoginFormWithFlow(t, true, nil, values,
+					false, http.StatusOK, ts.URL+login.RouteSubmitFlow, f)
 				assert.Equal(t, email, gjson.Get(body, "session.identity.traits.email").String(), "%s", body)
 				st := gjson.Get(body, "session_token").String()
 				assert.NotEmpty(t, st, "%s", body)
 
 				checkCredentialsLinked(t, true, i.ID, body)
+
+				loginFlow, err := reg.LoginFlowPersister().GetLoginFlow(ctx, uuid.FromStringOrNil(f.Id))
+				assert.NoError(t, err)
+				assert.NotEmpty(t, gjson.GetBytes(loginFlow.InternalContext, flow.InternalContextLinkCredentialsPath), "%s", loginFlow.InternalContext)
 			})
 		})
 	})
