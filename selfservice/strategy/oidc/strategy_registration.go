@@ -171,7 +171,7 @@ func (s *Strategy) Register(w http.ResponseWriter, r *http.Request, f *registrat
 		return s.handleError(w, r, f, pid, nil, err)
 	}
 
-	provider, err := s.provider(r.Context(), r, pid)
+	provider, err := s.provider(r.Context(), pid)
 	if err != nil {
 		return s.handleError(w, r, f, pid, nil, err)
 	}
@@ -411,7 +411,7 @@ func (s *Strategy) createIdentity(w http.ResponseWriter, r *http.Request, a *reg
 	}
 
 	i := identity.NewIdentity(s.d.Config().DefaultIdentityTraitsSchemaID(r.Context()))
-	if err := s.setTraits(w, r, a, claims, provider, container, evaluated, i); err != nil {
+	if err := s.setTraits(provider, container, evaluated, i); err != nil {
 		return nil, nil, s.handleError(w, r, a, provider.Config().ID, i.Traits, err)
 	}
 
@@ -438,7 +438,7 @@ func (s *Strategy) createIdentity(w http.ResponseWriter, r *http.Request, a *reg
 	return i, va, nil
 }
 
-func (s *Strategy) setTraits(w http.ResponseWriter, r *http.Request, a flow.Flow, claims *Claims, provider Provider, container *authCodeContainer, evaluated string, i *identity.Identity) error {
+func (s *Strategy) setTraits(provider Provider, container *authCodeContainer, evaluated string, i *identity.Identity) error {
 	jsonTraits := gjson.Get(evaluated, "identity.traits")
 	if !jsonTraits.IsObject() {
 		return errors.WithStack(herodot.ErrInternalServerError.WithReasonf("OpenID Connect Jsonnet mapper did not return an object for key identity.traits. Please check your Jsonnet code!"))
@@ -446,12 +446,11 @@ func (s *Strategy) setTraits(w http.ResponseWriter, r *http.Request, a flow.Flow
 
 	traits, err := merge(container.Traits, json.RawMessage(jsonTraits.Raw))
 	if err != nil {
-		return s.handleError(w, r, a, provider.Config().ID, nil, err)
+		return err
 	}
 
 	i.Traits = traits
 	s.d.Logger().
-		WithRequest(r).
 		WithField("oidc_provider", provider.Config().ID).
 		WithSensitiveField("identity_traits", i.Traits).
 		WithSensitiveField("mapper_jsonnet_output", evaluated).

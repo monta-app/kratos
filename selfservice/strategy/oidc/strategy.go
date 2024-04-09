@@ -324,7 +324,7 @@ func (s *Strategy) handleCallback(w http.ResponseWriter, r *http.Request, ps htt
 		return
 	}
 
-	provider, err := s.provider(r.Context(), r, pid)
+	provider, err := s.provider(r.Context(), pid)
 	if err != nil {
 		s.forwardError(w, r, req, s.handleError(w, r, req, pid, nil, err))
 		return
@@ -416,7 +416,7 @@ func (s *Strategy) Config(ctx context.Context) (*ConfigurationCollection, error)
 	return &c, nil
 }
 
-func (s *Strategy) provider(ctx context.Context, r *http.Request, id string) (Provider, error) {
+func (s *Strategy) provider(ctx context.Context, id string) (Provider, error) {
 	if c, err := s.Config(ctx); err != nil {
 		return nil, err
 	} else if provider, err := c.Provider(ctx, id, s.d); err != nil {
@@ -501,7 +501,7 @@ func (s *Strategy) CompletedAuthenticationMethod(ctx context.Context) session.Au
 	}
 }
 
-func (s *Strategy) linkCredentials(ctx context.Context, i *identity.Identity, idToken, accessToken, refreshToken, provider, subject string) error {
+func (s *Strategy) linkCredentials(ctx context.Context, i *identity.Identity, idToken, accessToken, refreshToken, providerID, subject string) error {
 	if i.Credentials == nil {
 		confidential, err := s.d.PrivilegedIdentityPool().GetIdentityConfidential(ctx, i.ID)
 		if err != nil {
@@ -513,15 +513,16 @@ func (s *Strategy) linkCredentials(ctx context.Context, i *identity.Identity, id
 	creds, err := i.ParseCredentials(s.ID(), &conf)
 	if errors.Is(err, herodot.ErrNotFound) {
 		var err error
-		if creds, err = identity.NewCredentialsOIDC(idToken, accessToken, refreshToken, provider, subject); err != nil {
+		if creds, err = identity.NewCredentialsOIDC(idToken, accessToken, refreshToken, providerID, subject); err != nil {
 			return err
 		}
 	} else if err != nil {
 		return err
 	} else {
-		creds.Identifiers = append(creds.Identifiers, identity.OIDCUniqueID(provider, subject))
+		creds.Identifiers = append(creds.Identifiers, identity.OIDCUniqueID(providerID, subject))
 		conf.Providers = append(conf.Providers, identity.CredentialsOIDCProvider{
-			Subject: subject, Provider: provider,
+			Subject:             subject,
+			Provider:            providerID,
 			InitialAccessToken:  accessToken,
 			InitialRefreshToken: refreshToken,
 			InitialIDToken:      idToken,
@@ -533,6 +534,26 @@ func (s *Strategy) linkCredentials(ctx context.Context, i *identity.Identity, id
 		}
 	}
 	i.Credentials[s.ID()] = *creds
+
+	provider, err := s.provider(ctx, providerID)
+
+	idTokenDecrypted, err := s.d.Cipher(ctx).Decrypt(ctx, idToken)
+	if err != nil {
+		return err
+	}
+
+	if apiFlowProvider, ok := provider.(APIFlowProvider); ok {
+		claims, err := apiFlowProvider.ClaimsFromIDToken(ctx, string(idTokenDecrypted))
+		if err != nil {
+			return err
+		}
+		if _, err = s.updateIdentityFromClaims(ctx, i, provider, claims); err != nil {
+			return err
+		}
+	} else {
+		return errors.WithStack(ErrProviderNoAPISupport)
+	}
+
 	return nil
 }
 

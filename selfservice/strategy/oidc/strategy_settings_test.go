@@ -440,8 +440,9 @@ func TestSettingsStrategy(t *testing.T) {
 				values.Add("link", provider)
 				values.Add("id_token", tokens.IDToken)
 
-				testhelpers.SettingsMakeRequest(t, true, false, f, agents[agent],
+				body, res := testhelpers.SettingsMakeRequest(t, true, false, f, agents[agent],
 					testhelpers.EncodeFormAsJSON(t, true, values))
+				assert.Equal(t, http.StatusOK, res.StatusCode, "%s", body)
 
 				checkCredentials(t, true, users[agent].ID, provider, subject, false)
 			})

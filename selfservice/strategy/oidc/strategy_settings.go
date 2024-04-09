@@ -279,7 +279,7 @@ func (s *Strategy) Settings(w http.ResponseWriter, r *http.Request, f *settings.
 	} else if l > 0 {
 		switch f.Type {
 		case flow.TypeAPI:
-			provider, err := s.provider(r.Context(), r, p.Link)
+			provider, err := s.provider(r.Context(), p.Link)
 			if err != nil {
 				return nil, s.handleSettingsError(w, r, ctxUpdate, &p, err)
 			}
@@ -287,11 +287,11 @@ func (s *Strategy) Settings(w http.ResponseWriter, r *http.Request, f *settings.
 			token := &oauth2.Token{}
 			if apiFlowProvider, ok := provider.(APIFlowProvider); ok {
 				if len(p.IDToken) > 0 {
-					token = token.WithExtra(map[string]string{"id_token": p.IDToken})
 					claims, err = apiFlowProvider.ClaimsFromIDToken(r.Context(), p.IDToken)
 					if err != nil {
 						return nil, errors.WithStack(err)
 					}
+					token = token.WithExtra(map[string]interface{}{"id_token": p.IDToken})
 				} else if len(p.AccessToken) > 0 {
 					token.AccessToken = p.AccessToken
 					claims, err = apiFlowProvider.ClaimsFromAccessToken(r.Context(), p.AccessToken)
@@ -369,7 +369,7 @@ func (s *Strategy) initLinkProvider(w http.ResponseWriter, r *http.Request, ctxU
 		return s.handleSettingsError(w, r, ctxUpdate, p, errors.WithStack(settings.NewFlowNeedsReAuth()))
 	}
 
-	provider, err := s.provider(r.Context(), r, p.Link)
+	provider, err := s.provider(r.Context(), p.Link)
 	if err != nil {
 		return s.handleSettingsError(w, r, ctxUpdate, p, err)
 	}
@@ -530,13 +530,13 @@ func (s *Strategy) handleSettingsError(w http.ResponseWriter, r *http.Request, c
 	return err
 }
 
-func (s *Strategy) Link(ctx context.Context, i *identity.Identity, credentialsConfig sqlxx.JSONRawMessage) error {
+func (s *Strategy) Link(ctx context.Context, i *identity.Identity, credentialsConfig sqlxx.JSONRawMessage) (*string, error) {
 	var credentialsOIDCConfig identity.CredentialsOIDC
 	if err := json.Unmarshal(credentialsConfig, &credentialsOIDCConfig); err != nil {
-		return err
+		return nil, err
 	}
 	if len(credentialsOIDCConfig.Providers) != 1 {
-		return errors.New("No oidc provider was set")
+		return nil, errors.New("No oidc provider was set")
 	}
 	var credentialsOIDCProvider = credentialsOIDCConfig.Providers[0]
 
@@ -549,13 +549,13 @@ func (s *Strategy) Link(ctx context.Context, i *identity.Identity, credentialsCo
 		credentialsOIDCProvider.Provider,
 		credentialsOIDCProvider.Subject,
 	); err != nil {
-		return err
+		return nil, err
 	}
 
 	options := []identity.ManagerOption{identity.ManagerAllowWriteProtectedTraits}
 	if err := s.d.IdentityManager().Update(ctx, i, options...); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &credentialsOIDCProvider.Provider, nil
 }

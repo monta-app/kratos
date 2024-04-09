@@ -368,12 +368,17 @@ func (e *HookExecutor) linkCredentials(r *http.Request, s *session.Session, i *i
 			return errors.New(fmt.Sprintf("Strategy is not linkable: %T", linkableStrategy))
 		}
 
-		if err := linkableStrategy.Link(r.Context(), i, lc.CredentialsConfig); err != nil {
+		provider, err := linkableStrategy.Link(r.Context(), i, lc.CredentialsConfig)
+		if err != nil {
 			return err
 		}
 
 		method := strategy.CompletedAuthenticationMethod(r.Context())
-		s.CompletedLoginFor(method.Method, method.AAL)
+		if provider == nil {
+			s.CompletedLoginFor(method.Method, method.AAL)
+		} else {
+			s.CompletedLoginForWithProvider(method.Method, method.AAL, *provider)
+		}
 	}
 
 	return nil
