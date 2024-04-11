@@ -3,7 +3,7 @@ kind: Component
 metadata:
   # Name of the project 
   name: service-kratos
-  description: N/A
+  description: 'Authentication service'
   # Specifies the directory of the docs
   annotations:
     backstage.io/techdocs-ref: dir:.
@@ -19,6 +19,6 @@ spec:
   # See lifecycle common values: https://backstage.io/docs/features/software-catalog/descriptor-format/#speclifecycle-required
   lifecycle: production
   # Name of the squad responsible for the project, e.g. sre or cpi
-  owner: Platform Services
+  owner: platform-services
   # Name of the greater system, e.g. "solar" is a part of the home system
   system: Platform
