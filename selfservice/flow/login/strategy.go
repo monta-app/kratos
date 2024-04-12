@@ -33,7 +33,7 @@ type AdminHandler interface {
 type Strategies []Strategy
 
 type LinkableStrategy interface {
-	Link(ctx context.Context, i *identity.Identity, credentials sqlxx.JSONRawMessage) (*string, error)
+	Link(ctx context.Context, i *identity.Identity, credentials sqlxx.JSONRawMessage) error
 }
 
 func (s Strategies) Strategy(id identity.CredentialsType) (Strategy, error) {

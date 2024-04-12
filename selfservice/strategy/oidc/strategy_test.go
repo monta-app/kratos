@@ -792,7 +792,6 @@ func TestStrategy(t *testing.T) {
 	})
 
 	t.Run("case=registration should start new login flow if duplicate credentials detected", func(t *testing.T) {
-		claims.traits.groups = []string{"group1", "group2"}
 
 		loginWithOIDC := func(t *testing.T, c *http.Client, flowID uuid.UUID, provider string) (*http.Response, []byte) {
 			action := afv(t, flowID, provider)
@@ -825,10 +824,7 @@ func TestStrategy(t *testing.T) {
 			assert.NotEmpty(t, i.Credentials["oidc"], "%+v", i.Credentials)
 			assert.Equal(t, provider, gjson.GetBytes(i.Credentials["oidc"].Config, "providers.0.provider").String(),
 				"%s", string(i.Credentials["oidc"].Config[:]))
-			assert.NotEmpty(t, gjson.GetBytes(body, "authentication_methods.#(method==oidc).method"), "%s", body)
-			assert.Equal(t, provider, gjson.GetBytes(body, "authentication_methods.#(method==oidc).provider").String(), "%s", body)
-			assert.NotEmpty(t, gjson.GetBytes(i.MetadataPublic, "sso_groups."+provider+".#(==group1)"), "%s", i.MetadataPublic)
-			assert.NotEmpty(t, gjson.GetBytes(i.MetadataPublic, "sso_groups."+provider+".#(==group2)"), "%s", i.MetadataPublic)
+			assert.Contains(t, gjson.GetBytes(body, "authentication_methods").String(), "oidc", "%s", body)
 		}
 
 		t.Run("case=second login is password", func(t *testing.T) {

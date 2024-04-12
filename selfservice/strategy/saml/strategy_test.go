@@ -496,8 +496,6 @@ func TestStrategy(t *testing.T) {
 				body := testhelpers.SubmitLoginFormWithFlow(t, true, nil, values,
 					false, http.StatusOK, ts.URL+login.RouteSubmitFlow, f)
 				assert.Equal(t, email, gjson.Get(body, "session.identity.traits.email").String(), "%s", body)
-				assert.Equal(t, "saml", gjson.Get(body, "session.authentication_methods.#(method==saml).method").String(), "%s", body)
-				assert.Equal(t, providerId, gjson.Get(body, "session.authentication_methods.#(method==saml).provider").String(), "%s", body)
 				st := gjson.Get(body, "session_token").String()
 				assert.NotEmpty(t, st, "%s", body)
 
