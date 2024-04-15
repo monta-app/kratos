@@ -554,6 +554,16 @@ func (h *Handler) updateRegistrationFlow(w http.ResponseWriter, r *http.Request,
 				h.d.RegistrationFlowErrorHandler().WriteFlowError(w, r, f, node.DefaultGroup, err)
 				return
 			}
+			regClaims := gjson.GetBytes(f.InternalContext, flow.InternalContextRegistrationClaimsPath)
+			if regClaims.Exists() {
+				newFlow.InternalContext, err = sjson.SetBytes(newFlow.InternalContext, flow.InternalContextRegistrationClaimsPath,
+					regClaims.String())
+				if err != nil {
+					h.d.RegistrationFlowErrorHandler().WriteFlowError(w, r, f, node.DefaultGroup, err)
+					return
+				}
+			}
+
 		})
 		loginFlow, _, err := h.d.LoginHandler().NewLoginFlow(w, r, flow.TypeBrowser, opts...)
 		if err != nil {
