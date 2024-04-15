@@ -667,6 +667,7 @@ func (h *Handler) updateLoginFlow(w http.ResponseWriter, r *http.Request, _ http
 		h.d.LoginFlowErrorHandler().WriteFlowError(w, r, nil, node.DefaultGroup, err)
 		return
 	}
+	h.d.Logger().Debugf("updateLoginFlow id: %s", rid.String())
 
 	f, err := h.d.LoginFlowPersister().GetLoginFlow(r.Context(), rid)
 	if err != nil {
@@ -719,6 +720,7 @@ continueLogin:
 		return
 	}
 
+	h.d.Logger().Debugf("REG FLOW id: %s", f.ID.String())
 	h.d.Logger().Debugf("REG FLOW InternalContext: %s", string(f.InternalContext))
 	internalContextDuplicateCredentials := gjson.GetBytes(f.InternalContext, flow.InternalContextDuplicateCredentialsPath)
 	if internalContextDuplicateCredentials.IsObject() {
