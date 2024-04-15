@@ -311,6 +311,7 @@ func (e *HookExecutor) PreLoginHook(w http.ResponseWriter, r *http.Request, a *F
 
 func (e *HookExecutor) linkCredentials(r *http.Request, s *session.Session, i *identity.Identity, f *Flow) error {
 	var lc flow.RegistrationDuplicateCredentials
+	var regClaims *json.RawMessage
 
 	if r.Method == "POST" {
 		var p struct {
@@ -341,6 +342,14 @@ func (e *HookExecutor) linkCredentials(r *http.Request, s *session.Session, i *i
 			if innerErr != nil {
 				return innerErr
 			}
+			regClaims, innerErr = e.getInternalContextRegistrationClaims(internalContext)
+			if innerErr != nil {
+				return innerErr
+			}
+			f.InternalContext, innerErr = sjson.SetBytes(f.InternalContext, flow.InternalContextRegistrationClaimsPath, regClaims)
+			if innerErr != nil {
+				return innerErr
+			}
 			if innerErr = e.d.LoginFlowPersister().UpdateLoginFlow(r.Context(), f); innerErr != nil {
 				return innerErr
 			}
@@ -349,6 +358,10 @@ func (e *HookExecutor) linkCredentials(r *http.Request, s *session.Session, i *i
 
 	if lc.CredentialsType == "" {
 		err := e.getInternalContextLinkCredentials(f.InternalContext, flow.InternalContextLinkCredentialsPath, &lc)
+		if err != nil {
+			return err
+		}
+		regClaims, err = e.getInternalContextRegistrationClaims(f.InternalContext)
 		if err != nil {
 			return err
 		}
@@ -368,12 +381,17 @@ func (e *HookExecutor) linkCredentials(r *http.Request, s *session.Session, i *i
 			return errors.New(fmt.Sprintf("Strategy is not linkable: %T", linkableStrategy))
 		}
 
-		if err := linkableStrategy.Link(r.Context(), i, lc.CredentialsConfig); err != nil {
+		provider, err := linkableStrategy.Link(r.Context(), i, lc.CredentialsConfig, regClaims)
+		if err != nil {
 			return err
 		}
 
 		method := strategy.CompletedAuthenticationMethod(r.Context())
-		s.CompletedLoginFor(method.Method, method.AAL)
+		if provider == nil {
+			s.CompletedLoginFor(method.Method, method.AAL)
+		} else {
+			s.CompletedLoginForWithProvider(method.Method, method.AAL, *provider)
+		}
 	}
 
 	return nil
@@ -387,6 +405,14 @@ func (e *HookExecutor) getInternalContextLinkCredentials(internalContext sqlxx.J
 		}
 	}
 	return nil
+}
+func (e *HookExecutor) getInternalContextRegistrationClaims(internalContext sqlxx.JSONRawMessage) (*json.RawMessage, error) {
+	internalContextRegistrationClaims := gjson.GetBytes(internalContext, flow.InternalContextRegistrationClaimsPath)
+	if internalContextRegistrationClaims.Exists() {
+		claims := json.RawMessage(internalContextRegistrationClaims.String())
+		return &claims, nil
+	}
+	return nil, nil
 }
 
 func (e *HookExecutor) checkDuplecateCredentialsIdentifierMatch(ctx context.Context, identityID uuid.UUID, match string) error {

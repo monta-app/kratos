@@ -476,13 +476,13 @@ func (s *Strategy) handleSettingsError(w http.ResponseWriter, r *http.Request, c
 	return err
 }
 
-func (s *Strategy) Link(ctx context.Context, i *identity.Identity, credentialsConfig sqlxx.JSONRawMessage) error {
+func (s *Strategy) Link(ctx context.Context, i *identity.Identity, credentialsConfig sqlxx.JSONRawMessage, providersClaims *json.RawMessage) (*string, error) {
 	var credentialsSAMLConfig identity.CredentialsSAML
 	if err := json.Unmarshal(credentialsConfig, &credentialsSAMLConfig); err != nil {
-		return err
+		return nil, err
 	}
 	if len(credentialsSAMLConfig.Providers) != 1 {
-		return errors.New("No SAML provider was set")
+		return nil, errors.New("No SAML provider was set")
 	}
 	var credentialsSAMLProvider = credentialsSAMLConfig.Providers[0]
 
@@ -492,13 +492,13 @@ func (s *Strategy) Link(ctx context.Context, i *identity.Identity, credentialsCo
 		credentialsSAMLProvider.Provider,
 		credentialsSAMLProvider.Subject,
 	); err != nil {
-		return err
+		return nil, err
 	}
 
 	options := []identity.ManagerOption{identity.ManagerAllowWriteProtectedTraits}
 	if err := s.d.IdentityManager().Update(ctx, i, options...); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &credentialsSAMLProvider.Provider, nil
 }

@@ -5,10 +5,12 @@ package oidc
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/ory/x/fetcher"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"net/http"
 	"time"
 
@@ -89,6 +91,16 @@ type UpdateLoginFlowWithOidcMethod struct {
 }
 
 func (s *Strategy) processLogin(w http.ResponseWriter, r *http.Request, a *login.Flow, token *oauth2.Token, claims *Claims, provider Provider, container *authCodeContainer) (*registration.Flow, error) {
+	var err error
+	if !gjson.GetBytes(a.InternalContext, flow.InternalContextRegistrationClaimsPath).Exists() {
+		a.InternalContext, err = sjson.SetBytes(a.InternalContext, flow.InternalContextRegistrationClaimsPath, map[string]interface{}{provider.Config().ID: claims})
+		if err != nil {
+			return nil, s.handleError(w, r, a, provider.Config().ID, nil, err)
+		}
+	}
+	if err = s.d.LoginFlowPersister().UpdateLoginFlow(r.Context(), a); err != nil {
+		return nil, s.handleError(w, r, a, provider.Config().ID, nil, err)
+	}
 	i, c, err := s.d.PrivilegedIdentityPool().FindByCredentialsIdentifier(r.Context(), identity.CredentialsTypeOIDC, identity.OIDCUniqueID(provider.Config().ID, claims.Subject))
 	if err != nil {
 		if errors.Is(err, sqlcon.ErrNoRows) {
@@ -199,7 +211,7 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 		return nil, s.handleError(w, r, f, pid, nil, err)
 	}
 
-	provider, err := s.provider(r.Context(), r, pid)
+	provider, err := s.provider(r.Context(), pid)
 	if err != nil {
 		return nil, s.handleError(w, r, f, pid, nil, err)
 	}
@@ -285,75 +297,17 @@ func (s *Strategy) Login(w http.ResponseWriter, r *http.Request, f *login.Flow, 
 }
 
 func (s *Strategy) updateIdentityFromClaimsAndPersist(w http.ResponseWriter, r *http.Request, loginFlow *login.Flow, i *identity.Identity, err error, provider Provider, claims *Claims) (*identity.Identity, error) {
-	loginMapper := provider.Config().LoginMapper
-	if loginMapper == "" {
-		return i, nil
-	}
-
 	i, err = s.d.PrivilegedIdentityPool().GetIdentityConfidential(r.Context(), i.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	fetch := fetcher.NewFetcher(fetcher.WithClient(s.d.HTTPClient(r.Context())))
-	jsonnetMapperSnippet, err := fetch.Fetch(loginMapper)
+	updated, err := s.updateIdentityFromClaims(r.Context(), i, provider, claims)
 	if err != nil {
 		return nil, err
 	}
 
-	var jsonClaims bytes.Buffer
-	if err := json.NewEncoder(&jsonClaims).Encode(claims); err != nil {
-		return nil, err
-	}
-
-	vm, err := s.d.JsonnetVM(r.Context())
-	if err != nil {
-		return nil, err
-	}
-
-	vm.ExtCode("claims", jsonClaims.String())
-	vm.ExtVar("provider", provider.Config().ID)
-	jsonIdentity, err := json.Marshal(i)
-	if err != nil {
-		return nil, err
-	}
-	vm.ExtCode("identity", string(jsonIdentity))
-	evaluated, err := vm.EvaluateAnonymousSnippet(provider.Config().Mapper, jsonnetMapperSnippet.String())
-	if err != nil {
-		return nil, err
-	}
-
-	jsonTraits := gjson.Get(evaluated, "identity.traits")
-	setTraits := jsonTraits.Exists() && jsonTraits.IsObject()
-	if setTraits {
-		if err := s.setTraits(w, r, loginFlow, claims, provider, nil, evaluated, i); err != nil {
-			return nil, err
-		}
-	}
-
-	metadata := gjson.Get(evaluated, string(PublicMetadata))
-	setMetadataPublic := metadata.Exists() && metadata.IsObject()
-	if setMetadataPublic {
-		if err := s.setMetadata(evaluated, i, PublicMetadata); err != nil {
-			return nil, err
-		}
-	}
-
-	metadata = gjson.Get(evaluated, string(AdminMetadata))
-	setMetadataAdmin := metadata.Exists() && metadata.IsObject()
-	if setMetadataAdmin {
-		if err := s.setMetadata(evaluated, i, AdminMetadata); err != nil {
-			return nil, err
-		}
-	}
-
-	if setTraits {
-		if err := s.d.IdentityValidator().Validate(r.Context(), i); err != nil {
-			return nil, err
-		}
-	}
-
-	if setTraits || setMetadataPublic || setMetadataAdmin {
+	if updated {
 		if err := s.d.IdentityManager().Update(r.Context(), i, identity.ManagerAllowWriteProtectedTraits); err != nil {
 			return nil, err
 		}
@@ -362,4 +316,70 @@ func (s *Strategy) updateIdentityFromClaimsAndPersist(w http.ResponseWriter, r *
 	i = i.CopyWithoutCredentials()
 
 	return i, nil
+}
+
+func (s *Strategy) updateIdentityFromClaims(ctx context.Context, i *identity.Identity, provider Provider, claims *Claims) (bool, error) {
+	loginMapper := provider.Config().LoginMapper
+	if loginMapper == "" {
+		return false, nil
+	}
+
+	fetch := fetcher.NewFetcher(fetcher.WithClient(s.d.HTTPClient(ctx)))
+	jsonnetMapperSnippet, err := fetch.Fetch(loginMapper)
+	if err != nil {
+		return false, err
+	}
+
+	var jsonClaims bytes.Buffer
+	if err := json.NewEncoder(&jsonClaims).Encode(claims); err != nil {
+		return false, err
+	}
+
+	vm, err := s.d.JsonnetVM(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	vm.ExtCode("claims", jsonClaims.String())
+	vm.ExtVar("provider", provider.Config().ID)
+	jsonIdentity, err := json.Marshal(identity.WithAdminMetadataInJSON(*i))
+	if err != nil {
+		return false, err
+	}
+	vm.ExtCode("identity", string(jsonIdentity))
+	evaluated, err := vm.EvaluateAnonymousSnippet(loginMapper, jsonnetMapperSnippet.String())
+	if err != nil {
+		return false, err
+	}
+
+	jsonTraits := gjson.Get(evaluated, "identity.traits")
+	setTraits := jsonTraits.Exists() && jsonTraits.IsObject()
+	if setTraits {
+		if err := s.setTraits(provider, nil, evaluated, i); err != nil {
+			return false, err
+		}
+	}
+
+	metadata := gjson.Get(evaluated, string(PublicMetadata))
+	setMetadataPublic := metadata.Exists() && metadata.IsObject()
+	if setMetadataPublic {
+		if err := s.setMetadata(evaluated, i, PublicMetadata); err != nil {
+			return false, err
+		}
+	}
+
+	metadata = gjson.Get(evaluated, string(AdminMetadata))
+	setMetadataAdmin := metadata.Exists() && metadata.IsObject()
+	if setMetadataAdmin {
+		if err := s.setMetadata(evaluated, i, AdminMetadata); err != nil {
+			return false, err
+		}
+	}
+
+	if setTraits {
+		if err := s.d.IdentityValidator().Validate(ctx, i); err != nil {
+			return false, err
+		}
+	}
+	return setTraits || setMetadataPublic || setMetadataAdmin, nil
 }

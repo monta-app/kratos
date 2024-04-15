@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ory/x/sqlxx"
+	"github.com/tidwall/gjson"
 	"net/http"
 	"time"
 
@@ -279,7 +280,7 @@ func (s *Strategy) Settings(w http.ResponseWriter, r *http.Request, f *settings.
 	} else if l > 0 {
 		switch f.Type {
 		case flow.TypeAPI:
-			provider, err := s.provider(r.Context(), r, p.Link)
+			provider, err := s.provider(r.Context(), p.Link)
 			if err != nil {
 				return nil, s.handleSettingsError(w, r, ctxUpdate, &p, err)
 			}
@@ -287,11 +288,11 @@ func (s *Strategy) Settings(w http.ResponseWriter, r *http.Request, f *settings.
 			token := &oauth2.Token{}
 			if apiFlowProvider, ok := provider.(APIFlowProvider); ok {
 				if len(p.IDToken) > 0 {
-					token = token.WithExtra(map[string]string{"id_token": p.IDToken})
 					claims, err = apiFlowProvider.ClaimsFromIDToken(r.Context(), p.IDToken)
 					if err != nil {
 						return nil, errors.WithStack(err)
 					}
+					token = token.WithExtra(map[string]interface{}{"id_token": p.IDToken})
 				} else if len(p.AccessToken) > 0 {
 					token.AccessToken = p.AccessToken
 					claims, err = apiFlowProvider.ClaimsFromAccessToken(r.Context(), p.AccessToken)
@@ -369,7 +370,7 @@ func (s *Strategy) initLinkProvider(w http.ResponseWriter, r *http.Request, ctxU
 		return s.handleSettingsError(w, r, ctxUpdate, p, errors.WithStack(settings.NewFlowNeedsReAuth()))
 	}
 
-	provider, err := s.provider(r.Context(), r, p.Link)
+	provider, err := s.provider(r.Context(), p.Link)
 	if err != nil {
 		return s.handleSettingsError(w, r, ctxUpdate, p, err)
 	}
@@ -438,7 +439,7 @@ func (s *Strategy) linkProvider(w http.ResponseWriter, r *http.Request, ctxUpdat
 		return s.handleSettingsError(w, r, ctxUpdate, p, err)
 	}
 
-	if err := s.linkCredentials(r.Context(), i, it, cat, crt, provider.Config().ID, claims.Subject); err != nil {
+	if err := s.linkCredentials(r.Context(), i, it, cat, crt, provider.Config().ID, claims); err != nil {
 		return s.handleSettingsError(w, r, ctxUpdate, p, err)
 	}
 
@@ -530,15 +531,32 @@ func (s *Strategy) handleSettingsError(w http.ResponseWriter, r *http.Request, c
 	return err
 }
 
-func (s *Strategy) Link(ctx context.Context, i *identity.Identity, credentialsConfig sqlxx.JSONRawMessage) error {
+func (s *Strategy) Link(ctx context.Context, i *identity.Identity, credentialsConfig sqlxx.JSONRawMessage, providersClaims *json.RawMessage) (*string, error) {
 	var credentialsOIDCConfig identity.CredentialsOIDC
 	if err := json.Unmarshal(credentialsConfig, &credentialsOIDCConfig); err != nil {
-		return err
+		return nil, err
 	}
 	if len(credentialsOIDCConfig.Providers) != 1 {
-		return errors.New("No oidc provider was set")
+		return nil, errors.New("No oidc provider was set")
 	}
 	var credentialsOIDCProvider = credentialsOIDCConfig.Providers[0]
+
+	if providersClaims == nil {
+		return nil, errors.WithStack(errors.New(fmt.Sprintf("Claims for provider %s has not been passed to Link", credentialsOIDCProvider.Provider)))
+	}
+	claimsRaw := gjson.GetBytes(*providersClaims, credentialsOIDCProvider.Provider)
+	if !claimsRaw.IsObject() {
+		return nil, errors.WithStack(errors.New(fmt.Sprintf("Claims for provider %s not found", credentialsOIDCProvider.Provider)))
+	}
+
+	var claims Claims
+	if err := json.Unmarshal([]byte(claimsRaw.Raw), &claims); err != nil {
+		return nil, err
+	}
+
+	if claims.Subject != credentialsOIDCProvider.Subject {
+		return nil, errors.WithStack(errors.New(fmt.Sprintf("Subject is not the same for claims and credentials for provider %s", credentialsOIDCProvider.Provider)))
+	}
 
 	if err := s.linkCredentials(
 		ctx,
@@ -547,15 +565,15 @@ func (s *Strategy) Link(ctx context.Context, i *identity.Identity, credentialsCo
 		credentialsOIDCProvider.InitialAccessToken,
 		credentialsOIDCProvider.InitialRefreshToken,
 		credentialsOIDCProvider.Provider,
-		credentialsOIDCProvider.Subject,
+		&claims,
 	); err != nil {
-		return err
+		return nil, err
 	}
 
 	options := []identity.ManagerOption{identity.ManagerAllowWriteProtectedTraits}
 	if err := s.d.IdentityManager().Update(ctx, i, options...); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &credentialsOIDCProvider.Provider, nil
 }

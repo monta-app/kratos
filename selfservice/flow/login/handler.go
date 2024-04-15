@@ -738,6 +738,16 @@ continueLogin:
 				h.d.LoginFlowErrorHandler().WriteFlowError(w, r, f, node.DefaultGroup, err)
 				return
 			}
+			regClaims := gjson.GetBytes(f.InternalContext, flow.InternalContextRegistrationClaimsPath)
+			if internalContextDuplicateCredentials.IsObject() {
+				newFlow.InternalContext, err = sjson.SetBytes(newFlow.InternalContext, flow.InternalContextRegistrationClaimsPath,
+					regClaims.String())
+				if err != nil {
+					h.d.LoginFlowErrorHandler().WriteFlowError(w, r, f, node.DefaultGroup, err)
+					return
+				}
+			}
+
 		})
 		loginFlow, _, err := h.NewLoginFlow(w, r, flow.TypeBrowser, opts...)
 		if err != nil {

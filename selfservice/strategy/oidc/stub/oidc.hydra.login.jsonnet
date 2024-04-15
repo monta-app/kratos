@@ -1,7 +1,9 @@
 local claims = std.extVar('claims');
 local provider = std.extVar('provider');
 local identity = std.extVar('identity');
-local mp = if 'metadata_public' in identity then identity.metadata_public else {};
+local mp = if std.objectHas(identity, 'metadata_public') && identity.metadata_public != null then
+  identity.metadata_public
+else {};
 
 if std.length(claims.sub) == 0 then
   error 'claim sub not set'
