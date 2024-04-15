@@ -66,6 +66,7 @@ type (
 		x.CSRFProvider
 		config.Provider
 		ErrorHandlerProvider
+		x.LoggingProvider
 	}
 	HandlerProvider interface {
 		LoginHandler() *Handler
@@ -718,6 +719,7 @@ continueLogin:
 		return
 	}
 
+	h.d.Logger().Debugf("REG FLOW InternalContext: %s", string(f.InternalContext))
 	internalContextDuplicateCredentials := gjson.GetBytes(f.InternalContext, flow.InternalContextDuplicateCredentialsPath)
 	if internalContextDuplicateCredentials.IsObject() {
 		// If return_to was set before, we need to preserve it.
@@ -739,7 +741,9 @@ continueLogin:
 				return
 			}
 			regClaims := gjson.GetBytes(f.InternalContext, flow.InternalContextRegistrationClaimsPath)
-			if internalContextDuplicateCredentials.Exists() {
+			h.d.Logger().Debugf("regClaims: %v", regClaims)
+			if regClaims.Exists() {
+				h.d.Logger().Debugf("regClaims.String: %s", regClaims.String())
 				newFlow.InternalContext, err = sjson.SetBytes(newFlow.InternalContext, flow.InternalContextRegistrationClaimsPath,
 					regClaims.String())
 				if err != nil {
@@ -750,6 +754,7 @@ continueLogin:
 
 		})
 		loginFlow, _, err := h.NewLoginFlow(w, r, flow.TypeBrowser, opts...)
+		h.d.Logger().Debugf("LOGIN FLOW InternalContext: %s", string(loginFlow.InternalContext))
 		if err != nil {
 			h.d.LoginFlowErrorHandler().WriteFlowError(w, r, f, node.DefaultGroup, err)
 			return
