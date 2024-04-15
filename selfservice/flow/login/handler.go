@@ -739,7 +739,7 @@ continueLogin:
 				return
 			}
 			regClaims := gjson.GetBytes(f.InternalContext, flow.InternalContextRegistrationClaimsPath)
-			if internalContextDuplicateCredentials.IsObject() {
+			if internalContextDuplicateCredentials.Exists() {
 				newFlow.InternalContext, err = sjson.SetBytes(newFlow.InternalContext, flow.InternalContextRegistrationClaimsPath,
 					regClaims.String())
 				if err != nil {
