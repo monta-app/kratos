@@ -51,6 +51,8 @@ func NewWithoutInit(ctx context.Context, stdOutOrErr io.Writer, sl *servicelocat
 		return nil, err
 	}
 
+	r.StartSentry(ctx)
+
 	c.SetTracer(ctx, r.Tracer(ctx))
 	return r, nil
 }
