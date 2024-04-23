@@ -154,7 +154,13 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 		}
 	}
 
-	is, err := h.r.IdentityPool().ListIdentitiesFiltered(r.Context(), filters, page, itemsPerPage)
+	var is []Identity
+	var err error
+	if len(filters) == 0 {
+		is, err = h.r.IdentityPool().ListIdentities(r.Context(), page, itemsPerPage)
+	} else {
+		is, err = h.r.IdentityPool().ListIdentitiesFiltered(r.Context(), filters, page, itemsPerPage)
+	}
 	if err != nil {
 		h.r.Writer().WriteError(w, r, err)
 		return

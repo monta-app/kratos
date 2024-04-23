@@ -421,10 +421,10 @@ func (p *Persister) ListIdentitiesFiltered(ctx context.Context, filters map[stri
 	defer span.End()
 
 	is := []identity.Identity{}
-	if err := sqlcon.HandleError(p.GetConnection(ctx).Where("identities.nid = ?", p.nid).
-		LeftJoin("identity_credentials ic", "identities.id=ic.identity_id").
-		LeftJoin("identity_credential_types credential_types", "credential_types.id=ic.identity_credential_type_id").
-		LeftJoin("identity_credential_identifiers credential_identifiers", "credential_identifiers.identity_credential_id=ic.id").
+	if err := sqlcon.HandleError(p.GetConnection(ctx).Where("identities.nid = ? AND ic.nid = ? AND credential_identifiers.nid = ?", p.nid, p.nid, p.nid).
+		InnerJoin("identity_credentials ic", "identities.id=ic.identity_id").
+		InnerJoin("identity_credential_types credential_types", "credential_types.id=ic.identity_credential_type_id").
+		InnerJoin("identity_credential_identifiers credential_identifiers", "credential_identifiers.identity_credential_id=ic.id AND credential_identifiers.identity_credential_type_id = credential_types.id").
 		EagerPreload("VerifiableAddresses", "RecoveryAddresses").
 		Paginate(page, perPage).
 		Order("identities.id DESC").
