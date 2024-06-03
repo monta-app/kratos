@@ -251,4 +251,36 @@ func TestCompleteLogin(t *testing.T) {
 
 	})
 
+	t.Run("should not update authenticated_at field", func(t *testing.T) {
+		identifier, pwd, pin := x.NewUUID().String(), "password", "1234"
+		i := createIdentity(identifier, pwd, pin)
+
+		t.Run("type=api", func(t *testing.T) {
+			var values = func(v url.Values) {
+				v.Set("identifier", identifier)
+				v.Set("password", pwd)
+			}
+			hc := testhelpers.NewHTTPClientWithIdentitySessionToken(t, reg, i)
+
+			// login first
+			body := testhelpers.SubmitLoginForm(t, true, hc, publicTS, values, false, true, 200, "")
+			a := gjson.Get(body, "session.authenticated_at").String()
+
+			values = func(v url.Values) {
+				v.Set("method", "pin")
+				v.Set("pin", "1234")
+			}
+			body = testhelpers.SubmitLoginForm(t, true, hc, publicTS, values,
+				false, false, http.StatusOK, publicTS.URL+login.RouteSubmitFlow,
+				testhelpers.InitFlowWithAAL(identity.NoAuthenticatorAssuranceLevel))
+
+			assert.Equal(t, identifier, gjson.Get(body, "session.identity.traits.subject").String(), "%s", body)
+			st := gjson.Get(body, "session_token").String()
+			assert.NotEmpty(t, st, "%s", body)
+			assert.Equal(t, int64(3), gjson.Get(body, "session.authentication_methods.#").Int(), "%s", body)
+			assert.Equal(t, "pin", gjson.Get(body, "session.authentication_methods.2.method").String(), "%s", body)
+			assert.Equal(t, "aal0", gjson.Get(body, "session.authentication_methods.2.aal").String(), "%s", body)
+			assert.Equal(t, a, gjson.Get(body, "session.authenticated_at").String(), "%s", body)
+		})
+	})
 }
