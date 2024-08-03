@@ -7,9 +7,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"github.com/ory/x/sqlxx"
 	"net/http"
 	"strings"
+
+	"github.com/ory/x/sqlxx"
 
 	"github.com/ory/x/sqlcon"
 

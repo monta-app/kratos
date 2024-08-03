@@ -6,6 +6,7 @@ package password
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/ory/x/sqlxx"
 
 	"github.com/ory/kratos/ui/node"

@@ -6,6 +6,7 @@ package totp
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/ory/x/sqlxx"
 
 	"github.com/pkg/errors"
