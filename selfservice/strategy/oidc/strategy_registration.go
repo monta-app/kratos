@@ -179,7 +179,7 @@ func (s *Strategy) Register(w http.ResponseWriter, r *http.Request, f *registrat
 		return s.handleError(w, r, f, pid, nil, err)
 	}
 
-	provider, err := s.provider(ctx, r, pid)
+	provider, err := s.provider(ctx, pid)
 	if err != nil {
 		return s.handleError(w, r, f, pid, nil, err)
 	}
@@ -337,6 +337,13 @@ func (s *Strategy) processRegistration(w http.ResponseWriter, r *http.Request, r
 	}
 
 	i.SetCredentials(s.ID(), *creds)
+	if err = flow.SetClaims(rf, provider.Config().ID, claims); err != nil {
+		return nil, err
+	}
+	if err = s.d.RegistrationFlowPersister().UpdateRegistrationFlow(r.Context(), rf); err != nil {
+		return nil, err
+	}
+
 	if err := s.d.RegistrationExecutor().PostRegistrationHook(w, r, identity.CredentialsTypeOIDC, provider.Config().ID, rf, i); err != nil {
 		return nil, s.handleError(w, r, rf, provider.Config().ID, i.Traits, err)
 	}
@@ -363,7 +370,7 @@ func (s *Strategy) createIdentity(w http.ResponseWriter, r *http.Request, a *reg
 	}
 
 	i := identity.NewIdentity(s.d.Config().DefaultIdentityTraitsSchemaID(r.Context()))
-	if err := s.setTraits(w, r, a, claims, provider, container, evaluated, i); err != nil {
+	if err := s.setTraits(provider, container, evaluated, i); err != nil {
 		return nil, nil, s.handleError(w, r, a, provider.Config().ID, i.Traits, err)
 	}
 
@@ -394,7 +401,7 @@ func (s *Strategy) createIdentity(w http.ResponseWriter, r *http.Request, a *reg
 	return i, va, nil
 }
 
-func (s *Strategy) setTraits(w http.ResponseWriter, r *http.Request, a flow.Flow, claims *Claims, provider Provider, container *AuthCodeContainer, evaluated string, i *identity.Identity) error {
+func (s *Strategy) setTraits(provider Provider, container *AuthCodeContainer, evaluated string, i *identity.Identity) error {
 	jsonTraits := gjson.Get(evaluated, "identity.traits")
 	if !jsonTraits.IsObject() {
 		return errors.WithStack(herodot.ErrInternalServerError.WithReasonf("OpenID Connect Jsonnet mapper did not return an object for key identity.traits. Please check your Jsonnet code!"))
@@ -403,7 +410,7 @@ func (s *Strategy) setTraits(w http.ResponseWriter, r *http.Request, a flow.Flow
 	if container != nil {
 		traits, err := merge(container.Traits, json.RawMessage(jsonTraits.Raw))
 		if err != nil {
-			return s.handleError(w, r, a, provider.Config().ID, nil, err)
+			return err
 		}
 
 		i.Traits = traits
@@ -411,7 +418,6 @@ func (s *Strategy) setTraits(w http.ResponseWriter, r *http.Request, a flow.Flow
 		i.Traits = identity.Traits(json.RawMessage(jsonTraits.Raw))
 	}
 	s.d.Logger().
-		WithRequest(r).
 		WithField("oidc_provider", provider.Config().ID).
 		WithSensitiveField("identity_traits", i.Traits).
 		WithSensitiveField("mapper_jsonnet_output", evaluated).

@@ -415,7 +415,7 @@ func (s *Strategy) HandleCallback(w http.ResponseWriter, r *http.Request, ps htt
 		return
 	}
 
-	provider, err := s.provider(r.Context(), r, pid)
+	provider, err := s.provider(r.Context(), pid)
 	if err != nil {
 		s.forwardError(w, r, req, s.handleError(w, r, req, pid, nil, err))
 		return
@@ -587,7 +587,7 @@ func (s *Strategy) Config(ctx context.Context) (*ConfigurationCollection, error)
 	return &c, nil
 }
 
-func (s *Strategy) provider(ctx context.Context, r *http.Request, id string) (Provider, error) {
+func (s *Strategy) provider(ctx context.Context, id string) (Provider, error) {
 	if c, err := s.Config(ctx); err != nil {
 		return nil, err
 	} else if provider, err := c.Provider(id, s.d); err != nil {
@@ -670,7 +670,7 @@ func (s *Strategy) handleError(w http.ResponseWriter, r *http.Request, f flow.Fl
 
 				newLoginURL := s.d.Config().SelfServiceFlowLoginUI(r.Context()).String()
 				providerLabel := providerID
-				provider, _ := s.provider(r.Context(), r, providerID)
+				provider, _ := s.provider(r.Context(), providerID)
 				if provider != nil && provider.Config() != nil {
 					providerLabel = provider.Config().Label
 				}
@@ -762,7 +762,7 @@ func (s *Strategy) processIDToken(w http.ResponseWriter, r *http.Request, provid
 	return claims, nil
 }
 
-func (s *Strategy) linkCredentials(ctx context.Context, i *identity.Identity, tokens *identity.CredentialsOIDCEncryptedTokens, provider, subject, organization string) error {
+func (s *Strategy) linkCredentials(ctx context.Context, i *identity.Identity, tokens *identity.CredentialsOIDCEncryptedTokens, providerID string, claims *Claims, organization string) error {
 	if err := s.d.PrivilegedIdentityPool().HydrateIdentityAssociations(ctx, i, identity.ExpandCredentials); err != nil {
 		return err
 	}
@@ -770,15 +770,16 @@ func (s *Strategy) linkCredentials(ctx context.Context, i *identity.Identity, to
 	creds, err := i.ParseCredentials(s.ID(), &conf)
 	if errors.Is(err, herodot.ErrNotFound) {
 		var err error
-		if creds, err = identity.NewCredentialsOIDC(tokens, provider, subject, organization); err != nil {
+		if creds, err = identity.NewCredentialsOIDC(tokens, providerID, claims.Subject, organization); err != nil {
 			return err
 		}
 	} else if err != nil {
 		return err
 	} else {
-		creds.Identifiers = append(creds.Identifiers, identity.OIDCUniqueID(provider, subject))
+		creds.Identifiers = append(creds.Identifiers, identity.OIDCUniqueID(providerID, claims.Subject))
 		conf.Providers = append(conf.Providers, identity.CredentialsOIDCProvider{
-			Subject: subject, Provider: provider,
+			Subject:             claims.Subject,
+			Provider:            providerID,
 			InitialAccessToken:  tokens.GetAccessToken(),
 			InitialRefreshToken: tokens.GetRefreshToken(),
 			InitialIDToken:      tokens.GetIDToken(),
@@ -794,6 +795,15 @@ func (s *Strategy) linkCredentials(ctx context.Context, i *identity.Identity, to
 	i.Credentials[s.ID()] = *creds
 	if orgID, err := uuid.FromString(organization); err == nil {
 		i.OrganizationID = uuid.NullUUID{UUID: orgID, Valid: true}
+	}
+
+	provider, err := s.provider(ctx, providerID)
+	if err != nil {
+		return err
+	}
+
+	if _, err = s.updateIdentityFromClaims(ctx, i, provider, claims); err != nil {
+		return err
 	}
 
 	return nil
