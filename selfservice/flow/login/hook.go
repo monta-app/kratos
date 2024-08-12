@@ -350,7 +350,7 @@ func (e *HookExecutor) maybeLinkCredentials(ctx context.Context, sess *session.S
 	regClaims, err := flow.GetClaims(loginFlow)
 	if err != nil {
 		return err
-	} else if regClaims == nil {
+	} else if regClaims == nil && lc.CredentialsType == identity.CredentialsTypeOIDC {
 		return nil
 	}
 
