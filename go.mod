@@ -253,7 +253,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/term v0.0.0-20220808134915-39b0c02b01ae // indirect
-	github.com/nyaruka/phonenumbers v1.3.6 // indirect
+	github.com/nyaruka/phonenumbers v1.3.6
 	github.com/ogier/pflag v0.0.1 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
@@ -338,5 +338,6 @@ require (
 	github.com/jackc/puddle/v2 v2.1.2 // indirect
 	github.com/lestrrat-go/httprc v1.0.4 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 )
