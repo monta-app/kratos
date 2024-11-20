@@ -1810,6 +1810,11 @@
                   "type": "object",
                   "additionalProperties": false,
                   "properties": {
+                    "auto_register": {
+                      "type": "boolean",
+                      "title": "If identity not found in login flow, then auto-create registration flow and new identity.",
+                      "default": true
+                    },
                     "base_redirect_uri": {
                       "type": "string",
                       "title": "Base URL for OAuth2 Redirect URIs",

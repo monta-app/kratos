@@ -4,6 +4,9 @@
 package oidc
 
 import (
+	"github.com/ory/jsonschema/v3"
+	"github.com/ory/kratos/schema"
+	"github.com/ory/kratos/text"
 	"io"
 	"net/http"
 
@@ -35,4 +38,15 @@ func logUpstreamError(l *logrusx.Logger, resp *http.Response) error {
 
 	l.WithField("response_code", resp.StatusCode).WithField("response_body", string(body)).Error("The upstream OIDC provider returned a non 200 status code.")
 	return errors.WithStack(herodot.ErrInternalServerError.WithReasonf("OpenID Connect provider returned a %d status code but 200 is expected.", resp.StatusCode))
+}
+
+func NewErrorValidationLoginIdentityNotFound() error {
+	t := text.NewErrorValidationLoginIdentityNotFound()
+	return errors.WithStack(&schema.ValidationError{
+		ValidationError: &jsonschema.ValidationError{
+			Message:     t.Text,
+			InstancePtr: "#/",
+		},
+		Messages: new(text.Messages).Add(t),
+	})
 }

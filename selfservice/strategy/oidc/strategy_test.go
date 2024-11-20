@@ -201,7 +201,7 @@ func TestStrategy(t *testing.T) {
 		require.NoError(t, err)
 
 		returnToURL = res.Request.URL
-		assert.True(t, strings.HasPrefix(returnToURL.String(), returnTS.URL+"/app_code"))
+		assert.True(t, strings.HasPrefix(returnToURL.String(), returnTS.URL+"/app_code"), "%s", returnToURL.String())
 
 		return returnToURL
 	}
@@ -296,6 +296,17 @@ func TestStrategy(t *testing.T) {
 	}
 	newAPIRegistrationFlow := func(t *testing.T, redirectTo string, exp time.Duration) *registration.Flow {
 		return newRegistrationFlow(t, redirectTo, exp, flow.TypeAPI)
+	}
+
+	setAutoRegisterToFalse := func(t *testing.T) {
+		configKey := config.ViperKeySelfServiceStrategyConfig + ".oidc.config"
+		currentConfig := conf.GetProvider(ctx).Get(configKey).(*oidc.ConfigurationCollection)
+		currentConfig.AutoRegister = false
+		conf.MustSet(ctx, configKey, currentConfig)
+		t.Cleanup(func() {
+			currentConfig.AutoRegister = true
+			conf.MustSet(ctx, configKey, currentConfig)
+		})
 	}
 
 	t.Run("case=should fail because provider does not exist", func(t *testing.T) {
@@ -612,10 +623,19 @@ func TestStrategy(t *testing.T) {
 
 		subject = "login-without-register@ory.sh"
 		scope = []string{"openid"}
+		transientPayload := `{"data": "login to registration"}`
+
+		t.Run("case=should fail login if identity not found", func(t *testing.T) {
+			setAutoRegisterToFalse(t)
+			r := newBrowserLoginFlow(t, returnTS.URL, time.Minute)
+			action := assertFormValues(t, r.ID, "valid")
+			res, body := makeRequest(t, "valid", action, url.Values{
+				"transient_payload": {transientPayload},
+			})
+			assertUIError(t, res, body, text.NewErrorValidationLoginIdentityNotFound().Text)
+		})
 
 		t.Run("case=should pass login", func(t *testing.T) {
-			transientPayload := `{"data": "login to registration"}`
-
 			r := newBrowserLoginFlow(t, returnTS.URL, time.Minute)
 			action := assertFormValues(t, r.ID, "valid")
 			res, body := makeRequest(t, "valid", action, url.Values{
@@ -725,6 +745,23 @@ func TestStrategy(t *testing.T) {
 			loginFlow, err := reg.LoginFlowPersister().GetLoginFlow(ctx, uuid.FromStringOrNil(returnedFlow))
 			require.NoError(t, err)
 			assert.Equal(t, text.ErrorValidationDuplicateCredentials, loginFlow.UI.Messages[0].ID)
+		})
+		t.Run("case=should fail login if identity not found", func(t *testing.T) {
+			setAutoRegisterToFalse(t)
+			ctx := context.Background()
+			subject = "login-auto-register-off-api-code-testing@ory.sh"
+
+			f := newAPILoginFlow(t, returnTS.URL+"?return_session_token_exchange_code=true&return_to="+returnTS.URL+"/app_code", 1*time.Minute)
+
+			_, err := exchangeCodeForToken(t, sessiontokenexchange.Codes{InitCode: f.SessionTokenExchangeCode})
+			require.Error(t, err)
+
+			action := assertFormValues(t, f.ID, "valid")
+			makeAPICodeFlowRequest(t, "valid", action)
+
+			loginFlow, err := reg.LoginFlowPersister().GetLoginFlow(ctx, f.ID)
+			require.NoError(t, err)
+			assert.Equal(t, text.ErrorValidationLoginIdentityNotFound, loginFlow.UI.Messages[0].ID)
 		})
 	})
 
@@ -945,6 +982,36 @@ func TestStrategy(t *testing.T) {
 			})
 
 		}
+
+		t.Run("case=login fails when auto registration is off", func(t *testing.T) {
+			setAutoRegisterToFalse(t)
+			token := `{
+					"iss": "https://appleid.apple.com",
+					"sub": "{{sub}}",
+					"nonce": "{{nonce}}"
+				}`
+
+			token = strings.Replace(token, "{{sub}}", testhelpers.RandomEmail(), -1)
+			nonce := randx.MustString(16, randx.Alpha)
+			token = strings.Replace(token, "{{nonce}}", nonce, -1)
+			v := url.Values{
+				"id_token":       {token},
+				"provider":       {"test-provider"},
+				"id_token_nonce": {nonce},
+			}
+
+			lf := newAPILoginFlow(t, returnTS.URL, time.Minute)
+			action := assertFormValues(t, lf.ID, "test-provider")
+
+			res, err := cl.PostForm(action, v)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusBadRequest, res.StatusCode)
+			body := ioutilx.MustReadAll(res.Body)
+			require.Equal(t,
+				strconv.Itoa(int(text.ErrorValidationLoginIdentityNotFound)),
+				gjson.GetBytes(body, "ui.messages.0.id").String(),
+				"%s", body)
+		})
 	})
 
 	t.Run("case=login without registered account with return_to", func(t *testing.T) {

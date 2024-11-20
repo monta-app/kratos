@@ -212,7 +212,7 @@ func TestViperProvider(t *testing.T) {
 				enabled bool
 			}{
 				{id: "password", enabled: true, config: `{"haveibeenpwned_host":"api.pwnedpasswords.com","haveibeenpwned_enabled":true,"ignore_network_errors":true,"max_breaches":0,"min_password_length":8,"identifier_similarity_check_enabled":true}`},
-				{id: "oidc", enabled: true, config: `{"providers":[{"client_id":"a","client_secret":"b","id":"github","provider":"github","mapper_url":"http://test.kratos.ory.sh/default-identity.schema.json"}]}`},
+				{id: "oidc", enabled: true, config: `{"auto_register":true,"providers":[{"client_id":"a","client_secret":"b","id":"github","provider":"github","mapper_url":"http://test.kratos.ory.sh/default-identity.schema.json"}]}`},
 				{id: "totp", enabled: true, config: `{"issuer":"issuer.ory.sh"}`},
 			} {
 				strategy := p.SelfServiceStrategy(ctx, tc.id)
@@ -387,7 +387,7 @@ func TestViperProvider(t *testing.T) {
 		})
 
 		t.Run("group=set_provider_by_json", func(t *testing.T) {
-			providerConfigJSON := `{"providers": [{"id":"github-test","provider":"github","client_id":"set_json_test","client_secret":"secret","mapper_url":"http://mapper-url","scope":["user:email"]}]}`
+			providerConfigJSON := `{"auto_register":true,"providers": [{"id":"github-test","provider":"github","client_id":"set_json_test","client_secret":"secret","mapper_url":"http://mapper-url","scope":["user:email"]}]}`
 			strategyConfigJSON := fmt.Sprintf(`{"enabled":true, "config": %s}`, providerConfigJSON)
 
 			p.MustSet(ctx, config.ViperKeySelfServiceStrategyConfig+".oidc", strategyConfigJSON)

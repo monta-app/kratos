@@ -416,3 +416,11 @@ func NewErrorValidationTraitsMismatch() *Message {
 		Type: Error,
 	}
 }
+
+func NewErrorValidationLoginIdentityNotFound() *Message {
+	return &Message{
+		ID:   ErrorValidationLoginIdentityNotFound,
+		Text: "Identity not found.",
+		Type: Error,
+	}
+}

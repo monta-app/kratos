@@ -132,6 +132,7 @@ func (p Configuration) Redir(public *url.URL) string {
 }
 
 type ConfigurationCollection struct {
+	AutoRegister    bool            `json:"auto_register"`
 	BaseRedirectURI string          `json:"base_redirect_uri"`
 	Providers       []Configuration `json:"providers"`
 }

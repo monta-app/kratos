@@ -110,6 +110,11 @@ func (s *Strategy) processLogin(w http.ResponseWriter, r *http.Request, loginFlo
 	i, c, err := s.d.PrivilegedIdentityPool().FindByCredentialsIdentifier(r.Context(), identity.CredentialsTypeOIDC, identity.OIDCUniqueID(provider.Config().ID, claims.Subject))
 	if err != nil {
 		if errors.Is(err, sqlcon.ErrNoRows) {
+			if config, err := s.Config(r.Context()); err != nil {
+				return nil, s.handleError(w, r, loginFlow, provider.Config().ID, nil, err)
+			} else if !config.AutoRegister {
+				return nil, s.handleError(w, r, loginFlow, provider.Config().ID, nil, NewErrorValidationLoginIdentityNotFound())
+			}
 			// If no account was found we're "manually" creating a new registration flow and redirecting the browser
 			// to that endpoint.
 

@@ -148,6 +148,7 @@ const (
 	ErrorValidationPasswordTooManyBreaches
 	ErrorValidationNoCodeUser
 	ErrorValidationTraitsMismatch
+	ErrorValidationLoginIdentityNotFound
 )
 
 const (

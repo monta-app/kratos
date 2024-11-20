@@ -340,7 +340,7 @@ func viperSetProviderConfig(t *testing.T, conf *config.Config, providers ...oidc
 	currentConfig := conf.GetProvider(ctx).Get(baseKey + ".config")
 	currentEnabled := conf.GetProvider(ctx).Get(baseKey + ".enabled")
 
-	conf.MustSet(ctx, baseKey+".config", &oidc.ConfigurationCollection{Providers: providers})
+	conf.MustSet(ctx, baseKey+".config", &oidc.ConfigurationCollection{AutoRegister: true, Providers: providers})
 	conf.MustSet(ctx, baseKey+".enabled", true)
 
 	t.Cleanup(func() {
