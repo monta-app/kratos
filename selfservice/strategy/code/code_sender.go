@@ -5,7 +5,10 @@ package code
 
 import (
 	"context"
+	"github.com/ory/kratos/courier/template"
 	"net/url"
+	"regexp"
+	"slices"
 
 	"github.com/gofrs/uuid"
 	"github.com/pkg/errors"
@@ -443,7 +446,13 @@ func (s *Sender) send(ctx context.Context, via string, t courier.Template) error
 			return errors.WithStack(herodot.ErrInternalServerError.WithReasonf("Expected sms template but got %T", t))
 		}
 
-		if s.deps.Config().SelfServiceCodeStrategy(ctx).ExternalSMSVerify.Enabled {
+		if s.deps.Config().SelfServiceCodeStrategy(ctx).ExternalSMSVerify.Enabled &&
+			slices.Contains([]template.TemplateType{
+				template.TypeRecoveryCodeValid,
+				template.TypeVerificationCodeValid,
+				template.TypeLoginCodeValid,
+				template.TypeRegistrationCodeValid,
+			}, t.TemplateType()) {
 			err = s.deps.ExternalVerifier().VerificationStart(ctx, t)
 		} else {
 			_, err = c.QueueSMS(ctx, t)
@@ -531,4 +540,22 @@ func (s *Sender) CheckWithExternalVerifier(ctx context.Context, f flow.Flow, id 
 	}
 
 	return nil
+}
+
+func (s *Sender) SendLoginCodeInvalid(ctx context.Context, recipient string) error {
+	var via string
+	var t courier.Template
+	if regexp.MustCompile("^\\+?\\d+$").MatchString(recipient) {
+		via = identity.ChannelTypeSMS
+		t = sms.NewLoginCodeInvalid(s.deps, &sms.LoginCodeInvalidModel{
+			To: recipient,
+		})
+	} else {
+		via = identity.ChannelTypeEmail
+		t = email.NewLoginCodeInvalid(s.deps, &email.LoginCodeInvalidModel{
+			To: recipient,
+		})
+	}
+
+	return s.send(ctx, via, t)
 }

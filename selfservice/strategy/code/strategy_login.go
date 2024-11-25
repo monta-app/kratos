@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"github.com/ory/kratos/text"
 	"net/http"
 	"strings"
 
@@ -221,6 +222,7 @@ func (s *Strategy) loginSendCode(ctx context.Context, w http.ResponseWriter, r *
 
 	var addresses []Address
 	var i *identity.Identity
+	var blockSendingCode = false
 	if f.RequestedAAL > identity.AuthenticatorAssuranceLevel1 {
 		address, found := lo.Find(sess.Identity.VerifiableAddresses, func(va identity.VerifiableAddress) bool {
 			return va.Value == p.Identifier
@@ -237,18 +239,31 @@ func (s *Strategy) loginSendCode(ctx context.Context, w http.ResponseWriter, r *
 		// Step 1: Get the identity
 		i, _, err = s.findIdentityByIdentifier(ctx, p.Identifier)
 		if err != nil {
-			return err
+			e := new(schema.ValidationError)
+			if s.deps.Config().SelfServiceCodeStrategy(ctx).NotifyUnknownRecipients &&
+				errors.As(err, &e) &&
+				len(e.Messages) == 1 &&
+				e.Messages[0].ID == text.ErrorValidationNoCodeUser {
+				if err := s.deps.CodeSender().SendLoginCodeInvalid(ctx, p.Identifier); err != nil {
+					return err
+				}
+				blockSendingCode = true
+			} else {
+				return err
+			}
 		}
-		address, found := lo.Find(i.VerifiableAddresses, func(va identity.VerifiableAddress) bool {
-			return va.Value == p.Identifier
-		})
-		if !found {
-			return errors.WithStack(schema.NewUnknownAddressError())
+		if !blockSendingCode {
+			address, found := lo.Find(i.VerifiableAddresses, func(va identity.VerifiableAddress) bool {
+				return va.Value == p.Identifier
+			})
+			if !found {
+				return errors.WithStack(schema.NewUnknownAddressError())
+			}
+			addresses = []Address{{
+				To:  p.Identifier,
+				Via: address.Via,
+			}}
 		}
-		addresses = []Address{{
-			To:  p.Identifier,
-			Via: address.Via,
-		}}
 	}
 
 	// Step 2: Delete any previous login codes for this flow ID
@@ -258,8 +273,10 @@ func (s *Strategy) loginSendCode(ctx context.Context, w http.ResponseWriter, r *
 
 	// kratos only supports `email` identifiers at the moment with the code method
 	// this is validated in the identity validation step above
-	if err := s.deps.CodeSender().SendCode(ctx, f, i, addresses...); err != nil {
-		return errors.WithStack(err)
+	if !blockSendingCode {
+		if err := s.deps.CodeSender().SendCode(ctx, f, i, addresses...); err != nil {
+			return errors.WithStack(err)
+		}
 	}
 
 	// sets the flow state to code sent

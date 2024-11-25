@@ -1636,6 +1636,12 @@
                       "additionalProperties": false
                     }
                   }
+                },
+                "notify_unknown_recipients": {
+                  "title": "Notify unknown recipients",
+                  "description": "Whether to notify recipients, if login code was requested for their address.",
+                  "type": "boolean",
+                  "default": false
                 }
               }
             },

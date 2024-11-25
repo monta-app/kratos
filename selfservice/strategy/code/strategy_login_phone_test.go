@@ -12,6 +12,7 @@ import (
 	"github.com/ory/kratos/internal"
 	oryClient "github.com/ory/kratos/internal/httpclient"
 	"github.com/ory/kratos/session"
+	"github.com/ory/kratos/text"
 	"github.com/ory/x/ioutilx"
 	"github.com/ory/x/sqlxx"
 	"github.com/stretchr/testify/assert"
@@ -69,13 +70,11 @@ func TestLoginCodeStrategy_SMS(t *testing.T) {
 	}
 
 	type state struct {
-		flowID        string
-		identity      *identity.Identity
-		client        *http.Client
-		loginCode     string
-		identityPhone string
-		testServer    *httptest.Server
-		body          string
+		flowID     string
+		client     *http.Client
+		loginCode  string
+		testServer *httptest.Server
+		body       string
 	}
 
 	type ApiType string
@@ -88,8 +87,6 @@ func TestLoginCodeStrategy_SMS(t *testing.T) {
 
 	createLoginFlow := func(ctx context.Context, t *testing.T, public *httptest.Server, apiType ApiType) *state {
 		t.Helper()
-
-		identity := createIdentity(ctx, t)
 
 		var client *http.Client
 		if apiType == ApiTypeNative {
@@ -117,15 +114,10 @@ func TestLoginCodeStrategy_SMS(t *testing.T) {
 			require.NotEmptyf(t, csrfToken, "could not find csrf_token in: %s", body)
 		}
 
-		loginPhone := gjson.Get(identity.Traits.String(), "phone").String()
-		require.NotEmptyf(t, loginPhone, "could not find the phone trait inside the identity: %s", identity.Traits.String())
-
 		return &state{
-			flowID:        clientInit.GetId(),
-			identity:      identity,
-			identityPhone: loginPhone,
-			client:        client,
-			testServer:    public,
+			flowID:     clientInit.GetId(),
+			client:     client,
+			testServer: public,
 		}
 	}
 
@@ -179,59 +171,91 @@ func TestLoginCodeStrategy_SMS(t *testing.T) {
 		return s
 	}
 
-	for _, tc := range []struct {
-		d       string
-		apiType ApiType
-	}{
-		{
-			d:       "SPA client",
-			apiType: ApiTypeSPA,
-		},
-		{
-			d:       "Browser client",
-			apiType: ApiTypeBrowser,
-		},
-		{
-			d:       "Native client",
-			apiType: ApiTypeNative,
-		},
-	} {
+	setNotifyUnknownRecipientsToTrue := func(t *testing.T) {
+		conf.MustSet(ctx, fmt.Sprintf("%s.%s.notify_unknown_recipients", config.ViperKeySelfServiceStrategyConfig, identity.CredentialsTypeCodeAuth.String()), true)
+		t.Cleanup(func() {
+			conf.MustSet(ctx, fmt.Sprintf("%s.%s.notify_unknown_recipients", config.ViperKeySelfServiceStrategyConfig, identity.CredentialsTypeCodeAuth.String()), false)
+		})
+	}
 
-		t.Run("test="+tc.d, func(t *testing.T) {
-			t.Run("case=should be able to log in with code", func(t *testing.T) {
-				// create login flow
-				s := createLoginFlow(ctx, t, public, tc.apiType)
+	t.Run("test=notify_unknown_recipients false", func(t *testing.T) {
+		for _, tc := range []struct {
+			d       string
+			apiType ApiType
+		}{
+			{
+				d:       "SPA client",
+				apiType: ApiTypeSPA,
+			},
+			{
+				d:       "Browser client",
+				apiType: ApiTypeBrowser,
+			},
+			{
+				d:       "Native client",
+				apiType: ApiTypeNative,
+			},
+		} {
 
-				// submit phone
-				s = submitLogin(ctx, t, s, tc.apiType, func(v *url.Values) {
-					v.Set("identifier", s.identityPhone)
-				}, false, nil)
+			t.Run("test="+tc.d, func(t *testing.T) {
+				t.Run("case=should be able to log in with code", func(t *testing.T) {
+					externalVerifyResult = ""
+					i := createIdentity(ctx, t)
+					loginPhone := gjson.Get(i.Traits.String(), "phone").String()
+					require.NotEmptyf(t, loginPhone, "could not find the phone trait inside the identity: %s", i.Traits.String())
 
-				assert.Contains(t, externalVerifyResult, "code has been sent")
+					// create login flow
+					s := createLoginFlow(ctx, t, public, tc.apiType)
 
-				// 3. Submit OTP
-				submitLogin(ctx, t, s, tc.apiType, func(v *url.Values) {
-					v.Set("code", "0000")
-				}, true, nil)
+					// submit phone
+					s = submitLogin(ctx, t, s, tc.apiType, func(v *url.Values) {
+						v.Set("identifier", loginPhone)
+					}, false, nil)
 
-				assert.Contains(t, externalVerifyResult, "code valid")
-			})
+					assert.Contains(t, externalVerifyResult, "code has been sent")
 
-			t.Run("case=should not be able to use valid code after 5 attempts", func(t *testing.T) {
-				s := createLoginFlow(ctx, t, public, tc.apiType)
+					// 3. Submit OTP
+					submitLogin(ctx, t, s, tc.apiType, func(v *url.Values) {
+						v.Set("code", "0000")
+					}, true, nil)
 
-				// submit email
-				s = submitLogin(ctx, t, s, tc.apiType, func(v *url.Values) {
-					v.Set("identifier", s.identityPhone)
-				}, false, nil)
+					assert.Contains(t, externalVerifyResult, "code valid")
+				})
 
-				assert.Contains(t, externalVerifyResult, "code has been sent")
+				t.Run("case=should not be able to use valid code after 5 attempts", func(t *testing.T) {
+					externalVerifyResult = ""
+					i := createIdentity(ctx, t)
+					loginPhone := gjson.Get(i.Traits.String(), "phone").String()
+					require.NotEmptyf(t, loginPhone, "could not find the phone trait inside the identity: %s", i.Traits.String())
+					s := createLoginFlow(ctx, t, public, tc.apiType)
 
-				for i := 0; i < 5; i++ {
+					// submit email
+					s = submitLogin(ctx, t, s, tc.apiType, func(v *url.Values) {
+						v.Set("identifier", loginPhone)
+					}, false, nil)
+
+					assert.Contains(t, externalVerifyResult, "code has been sent")
+
+					for i := 0; i < 5; i++ {
+						// 3. Submit OTP
+						s = submitLogin(ctx, t, s, tc.apiType, func(v *url.Values) {
+							v.Set("code", "111111")
+							v.Set("identifier", loginPhone)
+						}, false, func(t *testing.T, s *state, body string, resp *http.Response) {
+							if tc.apiType == ApiTypeBrowser {
+								// in browser flows we redirect back to the login ui
+								require.Equal(t, http.StatusOK, resp.StatusCode, "%s", body)
+							} else {
+								require.EqualValues(t, http.StatusBadRequest, resp.StatusCode)
+							}
+							assert.Contains(t, gjson.Get(body, "ui.messages.0.text").String(), "The login code is invalid or has already been used")
+						})
+					}
+
 					// 3. Submit OTP
 					s = submitLogin(ctx, t, s, tc.apiType, func(v *url.Values) {
-						v.Set("code", "111111")
-						v.Set("identifier", s.identityPhone)
+						v.Set("code", "0000")
+						v.Set("identifier", loginPhone)
 					}, false, func(t *testing.T, s *state, body string, resp *http.Response) {
 						if tc.apiType == ApiTypeBrowser {
 							// in browser flows we redirect back to the login ui
@@ -239,24 +263,71 @@ func TestLoginCodeStrategy_SMS(t *testing.T) {
 						} else {
 							require.EqualValues(t, http.StatusBadRequest, resp.StatusCode)
 						}
-						assert.Contains(t, gjson.Get(body, "ui.messages.0.text").String(), "The login code is invalid or has already been used")
+						assert.Contains(t, gjson.Get(body, "ui.messages.0.text").String(), "The request was submitted too often.")
 					})
-				}
-
-				// 3. Submit OTP
-				s = submitLogin(ctx, t, s, tc.apiType, func(v *url.Values) {
-					v.Set("code", "0000")
-					v.Set("identifier", s.identityPhone)
-				}, false, func(t *testing.T, s *state, body string, resp *http.Response) {
-					if tc.apiType == ApiTypeBrowser {
-						// in browser flows we redirect back to the login ui
-						require.Equal(t, http.StatusOK, resp.StatusCode, "%s", body)
-					} else {
-						require.EqualValues(t, http.StatusBadRequest, resp.StatusCode)
-					}
-					assert.Contains(t, gjson.Get(body, "ui.messages.0.text").String(), "The request was submitted too often.")
 				})
 			})
-		})
-	}
+		}
+	})
+
+	t.Run("test=notify_unknown_recipients true", func(t *testing.T) {
+		setNotifyUnknownRecipientsToTrue(t)
+		for _, tc := range []struct {
+			d       string
+			apiType ApiType
+		}{
+			{
+				d:       "SPA client",
+				apiType: ApiTypeSPA,
+			},
+			{
+				d:       "Browser client",
+				apiType: ApiTypeBrowser,
+			},
+			{
+				d:       "Native client",
+				apiType: ApiTypeNative,
+			},
+		} {
+			t.Run("test="+tc.d, func(t *testing.T) {
+				t.Run("case=should be able to log in with code", func(t *testing.T) {
+					externalVerifyResult = ""
+					i := createIdentity(ctx, t)
+					loginPhone := gjson.Get(i.Traits.String(), "phone").String()
+					require.NotEmptyf(t, loginPhone, "could not find the phone trait inside the identity: %s", i.Traits.String())
+					// create login flow
+					s := createLoginFlow(ctx, t, public, tc.apiType)
+
+					// submit phone
+					s = submitLogin(ctx, t, s, tc.apiType, func(v *url.Values) {
+						v.Set("identifier", loginPhone)
+					}, false, nil)
+
+					assert.Contains(t, externalVerifyResult, "code has been sent")
+
+					// 3. Submit OTP
+					submitLogin(ctx, t, s, tc.apiType, func(v *url.Values) {
+						v.Set("code", "0000")
+					}, true, nil)
+
+					assert.Contains(t, externalVerifyResult, "code valid")
+				})
+				t.Run("case=respond with code sent but send info message instead", func(t *testing.T) {
+					externalVerifyResult = ""
+					// create login flow
+					s := createLoginFlow(ctx, t, public, tc.apiType)
+
+					// submit phone
+					s = submitLogin(ctx, t, s, tc.apiType, func(v *url.Values) {
+						v.Set("identifier", "+1234567890")
+					}, false, nil)
+
+					assert.Equal(t, externalVerifyResult, "")
+					assert.Equal(t, int64(text.InfoSelfServiceLoginEmailWithCodeSent), gjson.GetBytes([]byte(s.body), "ui.messages.0.id").Int(), "%s", s.body)
+					message := testhelpers.CourierExpectMessage(ctx, t, reg, "+1234567890", "")
+					assert.Contains(t, message.Body, "we couldn’t find an account linked to this phone")
+				})
+			})
+		}
+	})
 }
