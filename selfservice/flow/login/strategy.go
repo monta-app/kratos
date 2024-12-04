@@ -61,8 +61,6 @@ func (s Strategies) RegisterPublicRoutes(r *x.RouterPublic) {
 	}
 }
 
-type StrategyFilter func(strategy Strategy) bool
-
 func (s Strategies) RegisterAdminRoutes(r *x.RouterAdmin) {
 	for _, ss := range s {
 		if h, ok := ss.(AdminHandler); ok {
@@ -70,6 +68,8 @@ func (s Strategies) RegisterAdminRoutes(r *x.RouterAdmin) {
 		}
 	}
 }
+
+type StrategyFilter func(strategy Strategy) bool
 
 type StrategyProvider interface {
 	AllLoginStrategies() Strategies
