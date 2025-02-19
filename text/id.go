@@ -81,6 +81,11 @@ const (
 )
 
 const (
+	InfoSelfServiceSettingsUpdateLinkSAML ID = 91050000 + iota  // 91050000
+	InfoSelfServiceSettingsUpdateUnlinkSAML                     // 91050001
+)
+
+const (
 	InfoSelfServiceRecovery                  ID = 1060000 + iota // 1060000
 	InfoSelfServiceRecoverySuccessful                            // 1060001
 	InfoSelfServiceRecoveryEmailSent                             // 1060002
@@ -153,6 +158,12 @@ const (
 	ErrorValidationTraitsMismatch
 	ErrorValidationAccountNotFound
 	ErrorValidationCaptchaError
+)
+
+const (
+	ErrorValidationInvalidPin       ID = 94000000 + iota // 94000000
+	ErrorValidationLoginIdentityNotFound                 // 94000001
+	ErrorValidationSAMLProviderNotFound                  // 94000002
 )
 
 const (

@@ -425,6 +425,22 @@ func NewErrorValidationTraitsMismatch() *Message {
 	}
 }
 
+func NewErrorValidationLoginIdentityNotFound() *Message {
+	return &Message{
+		ID:   ErrorValidationLoginIdentityNotFound,
+		Text: "Identity not found.",
+		Type: Error,
+	}
+}
+
+func NewErrorValidationSAMLProviderNotFound() *Message {
+	return &Message{
+		ID:   ErrorValidationSAMLProviderNotFound,
+		Text: "SAML Provider is unknown or has not been configured",
+		Type: Error,
+	}
+}
+
 func NewErrorCaptchaFailed() *Message {
 	return &Message{
 		ID:   ErrorValidationCaptchaError,
