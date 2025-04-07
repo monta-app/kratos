@@ -3,12 +3,10 @@ kind: Component
 metadata:
   # Name of the project 
   name: kratos
-  description: A few scripts to administer git repos and permissions
+  description: Identity server
   # Specifies the directory of the docs
   annotations:
     backstage.io/techdocs-ref: dir:.
-
-  labels:
 
   links:
     # Slack channel to write in for communicating with the resposible team.
