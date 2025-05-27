@@ -351,7 +351,10 @@ func ServeAll(d driver.Registry, slOpts *servicelocatorx.Options, opts []Option)
 
 		db := d.Persister().GetConnection(cmd.Context()).Store.SQLDB()
 		collector := sqlstats.NewStatsCollector("kratos_db", db)
-		prometheus_original.MustRegister(collector)
+		err := prometheus_original.Register(collector)
+		if e := new(prometheus_original.AlreadyRegisteredError); err != nil && !errors.As(err, e) {
+			panic(err)
+		}
 
 		return g.Wait()
 	}
