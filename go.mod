@@ -104,7 +104,10 @@ require (
 	google.golang.org/grpc v1.65.0
 )
 
-require github.com/wI2L/jsondiff v0.6.0
+require (
+	github.com/dlmiddlecote/sqlstats v1.0.2
+	github.com/wI2L/jsondiff v0.6.0
+)
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
@@ -267,7 +270,7 @@ require (
 	github.com/philhofer/fwd v1.1.3-0.20240612014219-fbbf4953d986 // indirect
 	github.com/pkg/profile v1.7.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/prometheus/client_golang v1.13.0 // indirect
+	github.com/prometheus/client_golang v1.13.0
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect

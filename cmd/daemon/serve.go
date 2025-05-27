@@ -6,6 +6,8 @@ package daemon
 import (
 	stdctx "context"
 	"crypto/tls"
+	"github.com/dlmiddlecote/sqlstats"
+	prometheus_original "github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"time"
 
@@ -346,6 +348,11 @@ func ServeAll(d driver.Registry, slOpts *servicelocatorx.Options, opts []Option)
 		g.Go(func() error {
 			return bgTasks(d, cmd, opts)
 		})
+
+		db := d.Persister().GetConnection(cmd.Context()).Store.SQLDB()
+		collector := sqlstats.NewStatsCollector("kratos_db", db)
+		prometheus_original.MustRegister(collector)
+
 		return g.Wait()
 	}
 }
